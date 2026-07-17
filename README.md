@@ -37,13 +37,31 @@ and the generated symbols carry the `$demo_` prefix.
 
 | `.graphql` source | generated `.graphql.ts` | exported symbol |
 |---|---|---|
-| `app/notes.graphql` | `app/notes.graphql.ts` | `$demo_app_notes(): DemoAppNotesQuery` |
-| `app/viewer.graphql` | `app/viewer.graphql.ts` | `$demo_app_viewer(): DemoAppViewerQuery` |
+| `app/notes.graphql` | `app/notes.graphql.ts` | `$demo_app_notes(): demo_app_notesQuery` |
+| `app/viewer.graphql` | `app/viewer.graphql.ts` | `$demo_app_viewer(): demo_app_viewerQuery` |
 | `note/card/note.graphql` | `note/card/note.graphql.ts` | `$demo_note_card_note` + `$demo_note_card_note_unmask(ref)` |
-| `note/card/like.graphql` | `note/card/like.graphql.ts` | `$demo_note_card_like(vars): DemoNoteCardLikeMutation` |
+| `note/card/like.graphql` | `note/card/like.graphql.ts` | `$demo_note_card_like(vars): demo_note_card_likeMutation` |
 
 The result/variables types are **baked in by the generator** (it knows the schema and
 the operation), so there is no reliance on byte-for-byte string-literal matching.
+
+### Operations are auto-named from the file location
+
+You may write `query { ... }` (anonymous) or `query AnyName { ... }`: the codegen
+rewrites the operation name to the canonical one derived from the file path, which is
+the generated symbol without the leading `$`. For `note/card/like.graphql` the symbol
+is `$demo_note_card_like`, so the document actually sent is
+`mutation demo_note_card_like(...)`. The function you call, the operation name the
+server sees, and the file path match 1:1.
+
+Two things fall out of this for free: server logs and APM always get a meaningful
+operation name, even when the developer forgot to write one; and the usual
+graphql-codegen "anonymous operation" error is gone (this repo's
+[`app/viewer.graphql`](app/viewer.graphql) is anonymous on purpose). Fragments are NOT
+renamed: they are spread by name across files (the Relay model), so a rewrite would
+break the spread sites. Instead the codegen prints a non-blocking warning when a
+fragment's name deviates from the same path-derived canonical, and this repo names its
+fragments canonically (`note/card/note.graphql` declares `demo_note_card_note`).
 
 ## Fragments: Relay's model, $mol's style
 
@@ -54,7 +72,7 @@ without React and without its normalized store:
 
   ```graphql
   # note/card/note.graphql
-  fragment DemoNoteCard_note on Note {
+  fragment demo_note_card_note on Note {
     id
     title
     body
@@ -64,9 +82,12 @@ without React and without its normalized store:
   ```
 
 - **Fragments are global, spread by unique name.** They do not care about the component
-  tree: any operation (or another fragment) can spread `...DemoNoteCard_note`. The
-  `${Component}_${prop}` naming convention exists only to guarantee global uniqueness
-  (the codegen rejects duplicates). At codegen time the fragment definitions are merged
+  tree: any operation (or another fragment) can spread `...demo_note_card_note`. Fragment
+  names follow the same path-derived canonical as operations: the file path naturally
+  encodes component and prop (`note/card/note.graphql` -> `demo_note_card_note`), so
+  global uniqueness comes from the path automatically. Unlike operations, the codegen
+  only WARNS (does not reject or rewrite) when a fragment name deviates: GraphQL spreads
+  are by-name and stay valid under any name. At codegen time the fragment definitions are merged
   (transitively) into every operation that spreads them, producing one network request with no
   runtime document registry:
 
@@ -75,14 +96,14 @@ without React and without its normalized store:
   query DemoAppNotes {
     notes {
       id
-      ...DemoNoteCard_note
+      ...demo_note_card_note
     }
   }
   ```
 
 - **Masking.** The parent physically receives the fragment's data, but its TYPE hides
   it. `$demo_app_notes().notes[0]` is typed as
-  `{ id: string } & { ' $fragmentRefs'?: { DemoNoteCard_noteFragment } }`. Reading
+  `{ id: string } & { ' $fragmentRefs'?: { demo_note_card_noteFragment } }`. Reading
   `.title` in the parent is a compile error:
 
   ```
@@ -198,9 +219,11 @@ Follow these in order to see the whole idea, from a `.graphql` file to a running
 1. A component's own operations: [`app/notes.graphql`](app/notes.graphql) and
    [`note/card/note.graphql`](note/card/note.graphql). Plain files next to the component.
 2. The codegen that types them: [`codegen/molplugin.js`](codegen/molplugin.js):
-   [`operationCode`](codegen/molplugin.js#L71-L104) merges spread fragments into the sent
-   string and emits the typed wrapper; [`fragmentCode`](codegen/molplugin.js#L105-L118)
-   emits the fragment type and `unmask`; [`escapeDollars`](codegen/molplugin.js#L67-L69) is
+   [`renameOperations`](codegen/molplugin.js#L103-L115) rewrites the operation name to the
+   path-derived canonical; [`operationCode`](codegen/molplugin.js#L117-L157) merges spread
+   fragments into the sent string and emits the typed wrapper;
+   [`fragmentCode`](codegen/molplugin.js#L241-L263) emits the fragment type and `unmask`;
+   [`escapeDollars`](codegen/molplugin.js#L97-L99) is
    the `$`-escape fix. [`codegen/preset.js`](codegen/preset.js) wires one output per file.
 3. The generated output: [`app/notes.graphql.ts`](app/notes.graphql.ts#L13-L30) (masked
    query with the fragment merged in) and
@@ -292,8 +315,10 @@ real graphql-js executor over the SDL ([`pages/mock.mjs`](pages/mock.mjs)). Dele
 2. Port `graphql/index.ts` under your prefix (request fn, error, ref type,
    invalidation marker), or swap the body of `*_request` for your transport.
 3. Write `.graphql` files next to your components: **one operation or fragment per
-   file**; file path defines the generated symbol (`a/b/c.graphql` → `$a_b_c`);
-   fragment names follow `${Component}_${prop}` and must be globally unique.
+   file**; file path defines the generated symbol (`a/b/c.graphql` → `$a_b_c`) and the
+   operation name (`a_b_c`, whatever you wrote in the file, even nothing);
+   name fragments by their file path too (same `a_b_c` rule), which is globally
+   unique automatically; the codegen warns if you deviate.
 4. `npm run codegen:watch` next to your mam dev server. Generated `*.graphql.ts` can be
    committed (this repo does) so the app builds without running codegen first.
 
@@ -342,7 +367,7 @@ const { calls, transport } = graphql_mock()          // per-operation call count
 with_transport(transport, () => {
 	const app = $demo_app.make({ $ })
 	$mol_assert_equal(app.greeting(), 'Reading list of Ada Lovelace')
-	$mol_assert_equal(calls.DemoAppNotes, 1)
+	$mol_assert_equal(calls.demo_app_notes, 1)
 	// mutate, then re-read, then assert the page queries refetched
 })
 ```
@@ -351,7 +376,7 @@ What the tests prove:
 - **Fragment unmask** (`card.view.test.ts`): a fragment ref unmasks into the typed fields and the
   card renders them. No network.
 - **The refetch convention** (`app.view.test.ts`): after a like mutation, the page queries are
-  re-requested (`DemoAppNotes` and `DemoAppViewer` call counts go 1 → 2) and the data changes.
+  re-requested (`demo_app_notes` and `demo_app_viewer` call counts go 1 → 2) and the data changes.
 - **The opt-out** (`app.view.test.ts`): a `{ revalidate: false }` query is fetched exactly once
   across a mutation, and a `{ revalidate: false }` mutation leaves the page queries put.
 

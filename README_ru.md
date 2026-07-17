@@ -39,13 +39,32 @@ docker-compose up --build
 
 | исходный `.graphql` | сгенерированный `.graphql.ts` | экспортируемый символ |
 |---|---|---|
-| `app/notes.graphql` | `app/notes.graphql.ts` | `$demo_app_notes(): DemoAppNotesQuery` |
-| `app/viewer.graphql` | `app/viewer.graphql.ts` | `$demo_app_viewer(): DemoAppViewerQuery` |
+| `app/notes.graphql` | `app/notes.graphql.ts` | `$demo_app_notes(): demo_app_notesQuery` |
+| `app/viewer.graphql` | `app/viewer.graphql.ts` | `$demo_app_viewer(): demo_app_viewerQuery` |
 | `note/card/note.graphql` | `note/card/note.graphql.ts` | `$demo_note_card_note` + `$demo_note_card_note_unmask(ref)` |
-| `note/card/like.graphql` | `note/card/like.graphql.ts` | `$demo_note_card_like(vars): DemoNoteCardLikeMutation` |
+| `note/card/like.graphql` | `note/card/like.graphql.ts` | `$demo_note_card_like(vars): demo_note_card_likeMutation` |
 
 Типы результата и переменных **вшивает генератор** (он знает схему и операцию),
 поэтому нет зависимости от побайтового совпадения строковых литералов.
+
+### Операции именуются автоматически по расположению файла
+
+Можно написать `query { ... }` (анонимно) или `query AnyName { ... }`: codegen
+переписывает имя операции на каноническое, выведенное из пути файла, - это
+сгенерированный символ без ведущего `$`. Для `note/card/like.graphql` символ -
+`$demo_note_card_like`, поэтому реально отправляется документ
+`mutation demo_note_card_like(...)`. Вызываемая функция, имя операции, которое
+видит сервер, и путь файла совпадают 1:1.
+
+Отсюда бесплатно следуют две вещи: логи сервера и APM всегда получают осмысленное
+имя операции, даже если разработчик забыл его написать; и привычная ошибка
+graphql-codegen "anonymous operation" исчезает (в этом репозитории
+[`app/viewer.graphql`](app/viewer.graphql) анонимен намеренно). Фрагменты НЕ
+переименовываются: их подключают по имени из других файлов (модель Relay), и
+переписывание сломало бы места подключения. Вместо этого codegen печатает
+неблокирующее предупреждение, когда имя фрагмента отклоняется от того же
+канонического, выведенного из пути; фрагменты этого репозитория названы
+канонически (`note/card/note.graphql` объявляет `demo_note_card_note`).
 
 ## Фрагменты: модель Relay, стиль $mol
 
@@ -57,7 +76,7 @@ docker-compose up --build
 
   ```graphql
   # note/card/note.graphql
-  fragment DemoNoteCard_note on Note {
+  fragment demo_note_card_note on Note {
     id
     title
     body
@@ -68,8 +87,13 @@ docker-compose up --build
 
 - **Фрагменты глобальны и подключаются по уникальному имени.** Дерево компонентов
   им безразлично: любая операция (или другой фрагмент) может подключить
-  `...DemoNoteCard_note`. Соглашение об именах `${Component}_${prop}` нужно только
-  для глобальной уникальности (codegen отвергает дубликаты). На этапе кодогенерации
+  `...demo_note_card_note`. Имена фрагментов следуют тому же каноническому правилу
+  из пути файла, что и операции: путь сам кодирует компонент и свойство
+  (`note/card/note.graphql` -> `demo_note_card_note`), так что глобальная
+  уникальность получается из пути автоматически. В отличие от операций, codegen
+  только ПРЕДУПРЕЖДАЕТ (не отвергает и не переписывает), если имя фрагмента
+  отклоняется: подключение в GraphQL идёт по имени и остаётся корректным при
+  любом имени. На этапе кодогенерации
   определения фрагментов (транзитивно) вливаются в каждую операцию, которая их
   подключает, - получается один сетевой запрос без рантайм-реестра документов:
 
@@ -78,14 +102,14 @@ docker-compose up --build
   query DemoAppNotes {
     notes {
       id
-      ...DemoNoteCard_note
+      ...demo_note_card_note
     }
   }
   ```
 
 - **Маскировка.** Родитель физически получает данные фрагмента, но его ТИП их
   скрывает. `$demo_app_notes().notes[0]` типизирован как
-  `{ id: string } & { ' $fragmentRefs'?: { DemoNoteCard_noteFragment } }`. Чтение
+  `{ id: string } & { ' $fragmentRefs'?: { demo_note_card_noteFragment } }`. Чтение
   `.title` в родителе - ошибка компиляции:
 
   ```
@@ -209,10 +233,12 @@ Codegen объединяет объявленные типы с `writes` и вы
 1. Собственные операции компонента: [`app/notes.graphql`](app/notes.graphql) и
    [`note/card/note.graphql`](note/card/note.graphql). Обычные файлы рядом с компонентом.
 2. Codegen, который их типизирует: [`codegen/molplugin.js`](codegen/molplugin.js):
-   [`operationCode`](codegen/molplugin.js#L71-L104) вливает подключённые фрагменты в
+   [`renameOperations`](codegen/molplugin.js#L103-L115) переписывает имя операции на
+   каноническое из пути файла;
+   [`operationCode`](codegen/molplugin.js#L117-L157) вливает подключённые фрагменты в
    отправляемую строку и выдаёт типизированную обёртку;
-   [`fragmentCode`](codegen/molplugin.js#L105-L118) выдаёт тип фрагмента и `unmask`;
-   [`escapeDollars`](codegen/molplugin.js#L67-L69) - фикс с экранированием `$`.
+   [`fragmentCode`](codegen/molplugin.js#L241-L263) выдаёт тип фрагмента и `unmask`;
+   [`escapeDollars`](codegen/molplugin.js#L97-L99) - фикс с экранированием `$`.
    [`codegen/preset.js`](codegen/preset.js) настраивает один выходной файл на каждый входной.
 3. Сгенерированный результат: [`app/notes.graphql.ts`](app/notes.graphql.ts#L13-L30)
    (замаскированный запрос с влитым фрагментом) и
@@ -307,8 +333,10 @@ mam-сборка `demo/app` + [`pages/build.mjs`](pages/build.mjs), которы
    ссылки, маркер инвалидации) или замените тело `*_request` на свой транспорт.
 3. Пишите файлы `.graphql` рядом со своими компонентами: **одна операция или
    фрагмент на файл**; путь файла задаёт сгенерированный символ
-   (`a/b/c.graphql` → `$a_b_c`); имена фрагментов следуют схеме
-   `${Component}_${prop}` и должны быть глобально уникальны.
+   (`a/b/c.graphql` → `$a_b_c`) и имя операции (`a_b_c`, что бы вы ни написали
+   в файле, хоть ничего); фрагменты тоже называйте по пути файла (то же правило
+   `a_b_c`) - это автоматически даёт глобальную уникальность; при отклонении
+   codegen предупреждает.
 4. `npm run codegen:watch` рядом с dev-сервером mam. Сгенерированные `*.graphql.ts`
    можно коммитить (этот репозиторий так и делает), чтобы приложение собиралось
    без предварительного запуска codegen.
@@ -362,7 +390,7 @@ const { calls, transport } = graphql_mock()          // per-operation call count
 with_transport(transport, () => {
 	const app = $demo_app.make({ $ })
 	$mol_assert_equal(app.greeting(), 'Reading list of Ada Lovelace')
-	$mol_assert_equal(calls.DemoAppNotes, 1)
+	$mol_assert_equal(calls.demo_app_notes, 1)
 	// mutate, then re-read, then assert the page queries refetched
 })
 ```
@@ -371,7 +399,7 @@ with_transport(transport, () => {
 - **Снятие маски с фрагмента** (`card.view.test.ts`): ссылка на фрагмент
   разворачивается в типизированные поля, и карточка их рендерит. Без сети.
 - **Соглашение о перезапросе** (`app.view.test.ts`): после мутации лайка запросы
-  страницы уходят повторно (счётчики вызовов `DemoAppNotes` и `DemoAppViewer`
+  страницы уходят повторно (счётчики вызовов `demo_app_notes` и `demo_app_viewer`
   растут 1 → 2), и данные меняются.
 - **Опт-аут** (`app.view.test.ts`): запрос с `{ revalidate: false }` выполняется
   ровно один раз, несмотря на мутацию, а мутация с `{ revalidate: false }`
