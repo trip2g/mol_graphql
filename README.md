@@ -2,7 +2,17 @@
 
 # $mol + GraphQL codegen: Relay's fragment way, without React
 
-A copy-paste-able starter showing how to wire **$mol** components to a GraphQL API with
+You have a GraphQL API on one side and a $mol UI on the other. This repo shows the
+shortest path between them: a component describes the data it needs in a small
+`.graphql` file next to its code, a code generator turns that file into an ordinary
+typed function, and the component calls that function and renders the result. Every
+component declares its own data this way (the fragment idea, borrowed from Relay), so
+one request fetches exactly what the whole page needs, and $mol re-renders the page
+when the data changes. If you know neither $mol nor GraphQL, start with the
+[walkthrough below](#walkthrough-from-a-query-to-a-rendered-page): it builds the whole
+picture on the demo's real files.
+
+In expert terms: a copy-paste-able starter showing how to wire **$mol** components to a GraphQL API with
 **full end-to-end typing** and **Relay-style fragments**, declared per component,
 spread by name, masked for everyone else, with zero imports and no changes to the
 $mol/mam builder.
@@ -19,6 +29,220 @@ docker-compose up --build
 You get a page that greets the viewer (plain typed query), lists notes (parent query
 composing a child's fragment), and lets you like a note (typed mutation + reactive
 refetch). Everything is typed from the schema down to the component code.
+
+## Walkthrough: from a query to a rendered page
+
+If you know neither $mol nor GraphQL, two facts are enough to read this section:
+
+- A GraphQL query is a plain-text list of the fields you want; the server answers
+  with JSON of exactly those fields. A fragment is a named, reusable piece of such
+  a list.
+- A $mol component is a folder with two files: `*.view.tree` declares what is on
+  screen, `*.view.ts` adds behavior in TypeScript. A property declared in the tree
+  can be computed or overridden in the `.ts`.
+
+### Step 1: one query, one component
+
+The app greets the current user. Its data need is written in
+[`app/viewer.graphql`](app/viewer.graphql), a plain file next to the component:
+
+```graphql
+query {
+	viewer {
+		name
+		pinned_note {
+			...demo_note_card_note
+		}
+	}
+}
+```
+
+Only `name` matters for now; the `pinned_note { ...demo_note_card_note }` part reuses
+another component's fragment and will make sense after step 2.
+
+The codegen watches this file and generates `app/viewer.graphql.ts` next to it: a
+typed function named `$demo_app_viewer` after the file path. The component calls it
+like any other function:
+
+```ts
+// app/app.view.ts
+@ $mol_mem
+greeting() {
+	return `Reading list of ${$demo_app_viewer().viewer.name}`
+}
+```
+
+There is no import and no fetch plumbing here: `$demo_app_viewer()` performs the
+request, and `.viewer.name` is typed from the schema, so a typo in a field name is a
+compile error. `@ $mol_mem` memoizes the property and makes it reactive: while the
+response is in flight, $mol suspends this computation and replays it once the data
+arrives; when the data later changes, everything that read it re-renders.
+
+The tree file puts the text on screen:
+
+```
+$demo_app $mol_page
+	title \$mol × GraphQL fragments
+	body /
+		<= Greeting $mol_paragraph
+			title <= greeting \
+```
+
+That is the whole loop: a `.graphql` file describes the data, a generated typed
+function fetches it, a one-line property renders it.
+
+### Step 2: a catalog and its cards, tied by a ref
+
+The page also shows a list of note cards. Two components are involved: the card
+(`note/card`, the item) and the app (the catalog). Each declares only what it itself
+needs.
+
+The card states its data needs as a fragment in
+[`note/card/note.graphql`](note/card/note.graphql):
+
+```graphql
+fragment demo_note_card_note on Note {
+	id
+	title
+	body
+	likes
+	author {
+		name
+	}
+}
+```
+
+Read it as: "to render one card of a `Note`, I need these fields". The card's tree
+declares its layout and one input, `note_ref`:
+
+```
+$demo_note_card $mol_view
+	note_ref null $demo_note_card_note_ref
+	sub /
+		<= Title $mol_paragraph
+			title <= note_title \
+		<= Body $mol_paragraph
+			title <= note_body \
+```
+
+`note_ref` is not the data itself. It is an opaque reference (the
+`$demo_note_card_note_ref` type is also generated from the fragment file). The card
+turns the ref into its fields with a generated unmask helper and renders them:
+
+```ts
+// note/card/card.view.ts
+@ $mol_mem
+note() {
+	return $demo_note_card_note_unmask_not_null(this.note_ref())
+}
+
+note_title() {
+	return this.note().title
+}
+
+like_title() {
+	return `♥ ${this.note().likes}`
+}
+```
+
+The card never fetches anything. Whoever wants to show a card must hand it a ref,
+and only the card can open that ref.
+
+Now the catalog side. The app's page query in [`app/notes.graphql`](app/notes.graphql)
+spreads the card's fragment by name:
+
+```graphql
+query DemoAppNotes {
+	notes {
+		id
+		...demo_note_card_note
+	}
+}
+```
+
+`...demo_note_card_note` means "include here everything the card asked for". One
+network request fetches the list ids plus every field every card needs. The app
+itself owns only `id`: reading `notes()[0].title` in app code is a compile error,
+because the card's fields are masked from everyone else.
+
+The app renders one card per note and passes each card its ref, in the tree:
+
+```
+		<= Note_list $mol_list
+			rows <= note_rows /
+	Note_card* $demo_note_card
+		note_ref <= card_ref* null
+```
+
+and in the behavior file:
+
+```ts
+// app/app.view.ts
+@ $mol_mem
+notes() {
+	return $demo_app_notes().notes
+}
+
+@ $mol_mem
+note_rows() {
+	return this.notes().map(note => this.Note_card(note.id))
+}
+
+card_ref(id: string): $demo_note_card_note_ref {
+	return this.notes().find(note => note.id === id)!
+}
+```
+
+Follow the ref: the query result comes out of `$demo_app_notes()` typed and masked,
+`note_rows()` makes a `Note_card` per id, the tree binding `note_ref <= card_ref*`
+hands each card its own masked item, and the card's `note()` unmasks it. The
+`pinned_note { ...demo_note_card_note }` from step 1 now reads naturally too: the
+viewer query reuses the same card fragment for the pinned note.
+
+### Step 3: a mutation that refreshes the page by itself
+
+The like button changes data on the server. Like queries and fragments, the mutation
+is a plain file next to the component, [`note/card/like.graphql`](note/card/like.graphql):
+
+```graphql
+mutation DemoNoteCardLike($id: ID!) {
+	note_like(id: $id) {
+		id
+		likes
+	}
+}
+```
+
+The codegen turns it into the typed function `$demo_note_card_like`, and the card
+calls it from its click handler:
+
+```ts
+// note/card/card.view.ts
+like(next?: Event) {
+	// calling this auto-reloads all queries on the page
+	$demo_note_card_like({ id: this.note().id })
+}
+```
+
+That comment is the demo's whole cache story (the default `revalidation: 'all'`
+convention, detailed below): after any mutation, every query on the page refetches,
+so the like count and anything else derived from the data update with no manual
+cache work.
+
+### Step 4: what you see, and why it is the shortest path
+
+Open the page and it renders: the greeting with the viewer's name, the pinned-note
+line, and one card per note with its title, body, author, and a like button showing
+the live count. Click like: the typed mutation fires, the page queries refetch, and
+every count on screen updates.
+
+The payoff in one line: the catalog asks the server for exactly what its cards need,
+in a single request; each card unmasks only its own fields; a mutation refreshes the
+whole page by convention; and $mol re-renders whatever read the changed data. That is
+the shortest path from a typed query to a rendered, reactive page.
+
+The rest of this page is the reference: how the codegen works, what exactly it
+generates, how to tune the refetch scope, and how to test it all.
 
 ## The idea in one paragraph
 
