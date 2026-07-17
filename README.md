@@ -218,7 +218,7 @@ Follow these in order to see the whole idea, from a `.graphql` file to a running
 The repo is a **mam package** in the canonical [hyoo-ru](https://github.com/hyoo-ru)
 shape: no vendored builder bootstrap, just module files. A mam workspace (cloned from
 [hyoo-ru/mam](https://github.com/hyoo-ru/mam), which provides `mam.ts`/`tsconfig.json`
-and the namespace→repo map for `mol`/`node`) mounts this repo at `demo/` — that is what
+and the namespace→repo map for `mol`/`node`) mounts this repo at `demo/`. That is what
 [hyoo-ru/mam_build](https://github.com/hyoo-ru/mam_build) does in CI with
 `package: 'demo'`.
 
@@ -233,7 +233,7 @@ server/
 graphql/index.ts        runtime: request fn, error, reactive marker, ref type
 graphql/schema.graphql.ts   (generated) shared scalar/enum/input types
 app/                    $demo_app: page, plain query + fragment-composing query
-app/static/             $demo_app_static: static entry — app + in-browser mock transport
+app/static/             $demo_app_static: static entry, app + in-browser mock transport
 note/card/              $demo_note_card: fragment + unmask + typed mutation
 pages/                  FALLBACK static-site assembly (esbuild + graphql-js executor)
 package.json            DEV TOOL only: codegen + mock server (not part of the build)
@@ -272,10 +272,10 @@ like any source change.
 `hyoo-ru/mam_build@master2` assembles the workspace (clones `hyoo-ru/mam` + deps,
 mounts this repo as `package: 'demo'`), builds `demo/app` and `demo/app/static`, runs
 every `*.test.ts`; then the `demo/app/static/-` folder is published to Pages. The
-default `GITHUB_TOKEN` is enough — everything mam_build clones is public. The deployed
+default `GITHUB_TOKEN` is enough: everything mam_build clones is public. The deployed
 site is `$demo_app_static` ([`app/static/static.ts`](app/static/static.ts)): one bundle
 where the transport seam is swapped for a sync in-browser mock answering each operation
-from the same dataset as the mock server — keep it in sync with
+from the same dataset as the mock server. Keep it in sync with
 [`server/mock.mjs`](server/mock.mjs) by hand.
 
 [`pages.yml`](.github/workflows/pages.yml) is the manual FALLBACK (pre-canonical) path:
@@ -300,7 +300,7 @@ real graphql-js executor over the SDL ([`pages/mock.mjs`](pages/mock.mjs)). Dele
 - **$mol module paths are literal**: `$demo_note_card` must live at `demo/note/card/`
   in the workspace, i.e. `note/card/` in this repo. Underscore = directory separator,
   always. (The builder resolves dependency FQNs by exact path segments; that is also why
-  the mount point `demo` and not e.g. `mol_graphql` — no underscores in path segments.)
+  the mount point `demo` and not e.g. `mol_graphql`: no underscores in path segments.)
 - **The $mol dep scanner reads `$`-tokens everywhere**, including string literals and
   doc-comments. GraphQL variables (`$id`) and fragment-masking keys (`' $fragmentRefs'`)
   would become phantom module deps and fail the build. The codegen therefore escapes
@@ -313,7 +313,7 @@ real graphql-js executor over the SDL ([`pages/mock.mjs`](pages/mock.mjs)). Dele
   automatically.
 - **`mam.ts`/`mam.jam.js` must exist at the workspace root** (they declare `class $`);
   without them every `$`-as-type use in mol fails to compile. In the canonical layout
-  they come from the central [hyoo-ru/mam](https://github.com/hyoo-ru/mam) workspace —
+  they come from the central [hyoo-ru/mam](https://github.com/hyoo-ru/mam) workspace.
   a package repo like this one must NOT vendor its own.
 - The generated wrapper for an operation that spreads fragments carries a
   `/** Spreads fragments: $demo_note_card_note */` doc-comment; that is a real
