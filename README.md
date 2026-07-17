@@ -441,8 +441,28 @@ touching generated code.
 
 To watch this live, each note card shows a `renders` counter and there is a
 `revalidate:false` static panel. Like any note: every card's counter ticks together while
-the static panel stays put ([`card.view.ts`](note/card/card.view.ts#L40-L63),
+the static panel stays put ([`card.view.ts`](note/card/card.view.ts#L52-L75),
 [`app.view.ts`](app/app.view.ts#L50-L72)).
+
+### $mol re-renders only what changed
+
+The refetch convention sounds wasteful on the render side too, but it is not. Every
+`$mol_mem` compares a recomputed value with the cached one structurally
+(`$mol_compare_deep` inside the atom's `put`): if nothing changed, the atom keeps the
+old value and never notifies subscribers, so the subtree behind that memo does not
+re-render. A mutation refetches every query, but the DOM updates only where the data
+actually differs.
+
+The demo makes this visible. Every render region plays a short flash on re-render, like
+"highlight updates" in React DevTools: a phase attribute alternates two values keyed off
+the render counter, each value maps to its own copy of the same CSS keyframes, and the
+changed animation-name restarts the pulse. Like a note and watch its card: the like
+region flashes and its `renders` counter ticks, while the author region next to it stays
+calm. Both hang off the same refetched query, but the author region is wired through a
+memo ([`author_name()` in `card.view.ts`](note/card/card.view.ts#L27-L39)) that
+recomputed to a structurally equal value, so `$mol_compare_deep` cut the propagation
+right there. The redundant refetch costs a network roundtrip; the redundant re-render
+never happens.
 
 ### Choosing the refetch scope: the `revalidation` codegen mode
 
@@ -522,7 +542,7 @@ Follow these in order to see the whole idea, from a `.graphql` file to a running
    [opaque ref type](graphql/index.ts#L136-L148).
 5. A component consuming a fragment: [`note/card/card.view.ts`](note/card/card.view.ts):
    [`note()` unmasks the ref](note/card/card.view.ts#L14-L17);
-   [`renders()`](note/card/card.view.ts#L40-L63) is the counter that ticks on every refetch.
+   [`renders()`](note/card/card.view.ts#L52-L75) is the counter that ticks on every refetch.
 6. The opt-out in action: [`app/app.view.ts`](app/app.view.ts#L50-L72):
    `viewer_static()` passes `{ revalidate: false }`, so its counter never moves.
 
@@ -668,6 +688,9 @@ What the tests prove:
   a null one renders the fallback text.
 - **The refetch convention** (`app.view.test.ts`): after a like mutation, the page queries are
   re-requested (`demo_app_notes` and `demo_app_viewer` call counts go 1 → 2) and the data changes.
+- **The re-render gate** (`app.view.test.ts`): across a like, the like region's render probe
+  advances while the author region's stays put, in the liked card and in the untouched one:
+  `$mol_compare_deep` stops the propagation at the unchanged memos.
 - **The opt-out** (`app.view.test.ts`): a `{ revalidate: false }` query is fetched exactly once
   across a mutation, and a `{ revalidate: false }` mutation leaves the page queries put.
 
