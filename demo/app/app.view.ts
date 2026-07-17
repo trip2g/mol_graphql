@@ -29,24 +29,16 @@ namespace $.$$ {
 		}
 
 		/**
-		 * Opt-out demo: the same viewer read, but passing { revalidate: false },
-		 * so this query does NOT subscribe to the invalidation marker and never
-		 * refetches when mutations bump it (watch static_fetches stay at 1
-		 * while every card's renders counter ticks on Like).
-		 *
-		 * The generated wrapper ($demo_app_viewer) calls the runtime without
-		 * opts, so this one call is hand-written against $demo_graphql_request,
-		 * reusing the generated result type. That keeps the generated code
-		 * untouched; a scoping helper in the runtime could do the same, but a
-		 * direct call keeps the mechanism visible in one place.
+		 * Opt-out demo: the SAME viewer query as greeting(), but through the
+		 * generated wrapper with { revalidate: false }, so it does NOT subscribe
+		 * to the invalidation marker and never refetches when a mutation bumps it
+		 * (watch static_fetches stay at 1 while every card's renders counter ticks
+		 * on Like). Every generated wrapper takes that opts param, so opting a
+		 * query out needs no hand-written GraphQL.
 		 */
 		@ $mol_mem
 		viewer_static() {
-			return $demo_graphql_request(`query DemoAppViewerStatic {
-  viewer {
-    name
-  }
-}`, undefined, { revalidate: false }) as DemoAppViewerQuery
+			return $demo_app_viewer({ revalidate: false })
 		}
 
 		/** Same probe-counter pattern as $demo_note_card.renders — see there. */

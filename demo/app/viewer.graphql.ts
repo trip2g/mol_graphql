@@ -7,12 +7,12 @@ export type DemoAppViewerQueryVariables = Exact<{ [key: string]: never; }>;
 export type DemoAppViewerQuery = { __typename?: 'Query', viewer: { __typename?: 'User', name: string } };
 
 
-export function $demo_app_viewer(): DemoAppViewerQuery {
+export function $demo_app_viewer(opts?: { revalidate?: boolean }): DemoAppViewerQuery {
 	return $demo_graphql_request(`query DemoAppViewer {
   viewer {
     name
   }
-}`) as DemoAppViewerQuery
+}`, undefined, opts) as DemoAppViewerQuery
 }
 
 }

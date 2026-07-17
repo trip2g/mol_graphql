@@ -82,11 +82,14 @@ function operationCode(def, doc, { symbol, runtime, fragments }) {
 	const closure = fragmentClosure(def, fragments, doc.location)
 	const merged = [(doc.rawSDL || '').trim(), ...closure.map(name => fragments[name].source)].join('\n\n')
 
-	// typed variables parameter
+	// typed variables parameter, plus an optional per-call opts (the invalidation
+	// escape hatch: `{ revalidate: false }` opts this call out of refetch-on-mutation)
 	const varDefs = def.variableDefinitions || []
 	const required = varDefs.some(v => v.type.kind === 'NonNullType' && !v.defaultValue)
-	const param = varDefs.length === 0 ? '' : `variables${required ? '' : '?'}: ${varsType}`
-	const arg = varDefs.length === 0 ? '' : ', variables'
+	const varsParam = varDefs.length === 0 ? '' : `variables${required ? '' : '?'}: ${varsType}`
+	const optsParam = 'opts?: { revalidate?: boolean }'
+	const param = [varsParam, optsParam].filter(Boolean).join(', ')
+	const varsArg = varDefs.length === 0 ? 'undefined' : 'variables'
 
 	const code = ['']
 	if (closure.length) {
@@ -96,7 +99,7 @@ function operationCode(def, doc, { symbol, runtime, fragments }) {
 	}
 	code.push(
 		`export function ${symbol}(${param}): ${resultType} {`,
-		`\treturn ${runtime}_request(\`${escapeTemplate(merged)}\`${arg}) as ${resultType}`,
+		`\treturn ${runtime}_request(\`${escapeTemplate(merged)}\`, ${varsArg}, opts) as ${resultType}`,
 		`}`,
 	)
 	return code

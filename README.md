@@ -6,7 +6,7 @@ spread by name, masked for everyone else, with zero imports and no changes to th
 $mol/mam builder.
 
 **Live demo:** https://trip2g.github.io/mol_graphql/ (runs entirely in the browser: a
-static build with an in-browser GraphQL mock, no server).
+static build with an in-browser GraphQL mock, no server; likes reset on reload).
 
 ```sh
 docker-compose up --build

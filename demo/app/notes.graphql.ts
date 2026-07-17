@@ -11,7 +11,7 @@ export type DemoAppNotesQuery = { __typename?: 'Query', notes: Array<(
 
 
 /** Spreads fragments: $demo_note_card_note */
-export function $demo_app_notes(): DemoAppNotesQuery {
+export function $demo_app_notes(opts?: { revalidate?: boolean }): DemoAppNotesQuery {
 	return $demo_graphql_request(`query DemoAppNotes {
   notes {
     id
@@ -27,7 +27,7 @@ fragment DemoNoteCard_note on Note {
   author {
     name
   }
-}`) as DemoAppNotesQuery
+}`, undefined, opts) as DemoAppNotesQuery
 }
 
 }

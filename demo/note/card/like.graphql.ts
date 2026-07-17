@@ -9,13 +9,13 @@ export type DemoNoteCardLikeMutationVariables = Exact<{
 export type DemoNoteCardLikeMutation = { __typename?: 'Mutation', note_like: { __typename?: 'Note', id: string, likes: number } };
 
 
-export function $demo_note_card_like(variables: DemoNoteCardLikeMutationVariables): DemoNoteCardLikeMutation {
+export function $demo_note_card_like(variables: DemoNoteCardLikeMutationVariables, opts?: { revalidate?: boolean }): DemoNoteCardLikeMutation {
 	return $demo_graphql_request(`mutation DemoNoteCardLike(\u0024id: ID!) {
   note_like(id: \u0024id) {
     id
     likes
   }
-}`, variables) as DemoNoteCardLikeMutation
+}`, variables, opts) as DemoNoteCardLikeMutation
 }
 
 }
