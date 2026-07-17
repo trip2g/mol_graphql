@@ -4,12 +4,29 @@ namespace $ {
 export type demo_app_viewerQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type demo_app_viewerQuery = { __typename?: 'Query', viewer: { __typename?: 'User', name: string } };
+export type demo_app_viewerQuery = { __typename?: 'Query', viewer: { __typename?: 'User', name: string, pinned_note?: (
+      { __typename?: 'Note' }
+      & { ' \u0024fragmentRefs'?: { 'demo_note_card_noteFragment': demo_note_card_noteFragment } }
+    ) | null } };
 
 
+/** Spreads fragments: $demo_note_card_note */
 export function $demo_app_viewer(opts?: { revalidate?: boolean }): demo_app_viewerQuery {
 	return $demo_graphql_request(`query demo_app_viewer {
   viewer {
+    name
+    pinned_note {
+      ...demo_note_card_note
+    }
+  }
+}
+
+fragment demo_note_card_note on Note {
+  id
+  title
+  body
+  likes
+  author {
     name
   }
 }`, undefined, opts) as demo_app_viewerQuery

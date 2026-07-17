@@ -18,4 +18,5 @@ type Note {
 type User {
 	id: ID!
 	name: String!
+	pinned_note: Note
 }

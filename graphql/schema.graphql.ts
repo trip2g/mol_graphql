@@ -46,6 +46,7 @@ export type User = {
   __typename?: 'User';
   id: Scalars['ID']['output'];
   name: Scalars['String']['output'];
+  pinned_note?: Maybe<Note>;
 };
 
 

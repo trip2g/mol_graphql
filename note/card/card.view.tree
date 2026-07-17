@@ -1,5 +1,5 @@
 $demo_note_card $mol_view
-	note_ref null
+	note_ref null $demo_note_card_note_ref
 	sub /
 		<= Title $mol_paragraph
 			title <= note_title \

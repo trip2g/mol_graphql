@@ -3,6 +3,8 @@ $demo_app $mol_page
 	body /
 		<= Greeting $mol_paragraph
 			title <= greeting \
+		<= Pinned $mol_paragraph
+			title <= pinned_title \
 		<= Static_panel $mol_paragraph
 			title <= static_title \
 		<= Note_list $mol_list

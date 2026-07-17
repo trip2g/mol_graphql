@@ -3,8 +3,8 @@
 // in-browser executor (pages/mock.mjs). The canonical static entry
 // (app/static/static.ts) mirrors this dataset by hand — keep them in sync.
 export const users = [
-	{ id: 'u1', name: 'Ada Lovelace' },
-	{ id: 'u2', name: 'Alan Turing' },
+	{ id: 'u1', name: 'Ada Lovelace', pinned_note_id: 'n2' },
+	{ id: 'u2', name: 'Alan Turing', pinned_note_id: null },
 ]
 
 export const notes = [
@@ -46,5 +46,9 @@ export const resolvers = {
 	},
 	Note: {
 		author: note => users.find(user => user.id === note.author_id),
+	},
+	User: {
+		// nullable on purpose: the app must handle a viewer with no pinned note
+		pinned_note: user => notes.find(note => note.id === user.pinned_note_id) ?? null,
 	},
 }

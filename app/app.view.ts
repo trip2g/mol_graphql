@@ -23,8 +23,27 @@ namespace $.$$ {
 			return this.notes().map(note => this.Note_card(note.id))
 		}
 
+		/**
+		 * Nullable schema field (`User.pinned_note: Note`) through the overloaded
+		 * unmask: the masked ref is `Ref | null`, so the result is `Frag | null`
+		 * and the compiler forces the null branch in pinned_title(). No `!`, no
+		 * cast. Where presence is guaranteed instead, the checked
+		 * $demo_note_card_note_unmask_not_null throws with the fragment name
+		 * (unlike TS `!`, which lets null crash later).
+		 */
+		@ $mol_mem
+		pinned() {
+			return $demo_note_card_note_unmask($demo_app_viewer().viewer.pinned_note)
+		}
+
+		pinned_title() {
+			const note = this.pinned()
+			if (!note) return 'No pinned note'
+			return `Pinned: ${note.title} (♥ ${note.likes})`
+		}
+
 		/** Masked fragment ref handed down to the card by key. */
-		card_ref(id: string): $demo_graphql_ref<$demo_note_card_note> {
+		card_ref(id: string): $demo_note_card_note_ref {
 			return this.notes().find(note => note.id === id)!
 		}
 

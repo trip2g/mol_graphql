@@ -16,8 +16,8 @@ namespace $ {
 	export const $demo_app_static_root = () => $demo_app
 
 	const users = [
-		{ id: 'u1', name: 'Ada Lovelace' },
-		{ id: 'u2', name: 'Alan Turing' },
+		{ id: 'u1', name: 'Ada Lovelace', pinned_note_id: 'n2' as string | null },
+		{ id: 'u2', name: 'Alan Turing', pinned_note_id: null },
 	]
 
 	const notes = [
@@ -58,8 +58,13 @@ namespace $ {
 
 		switch (name) {
 
-			case 'demo_app_viewer':
-				return { data: { viewer: { name: users[0].name } } }
+			case 'demo_app_viewer': {
+				const pinned = notes.find(note => note.id === users[0].pinned_note_id)
+				return { data: { viewer: {
+					name: users[0].name,
+					pinned_note: pinned ? note_data(pinned) : null,
+				} } }
+			}
 
 			case 'demo_app_notes':
 				return { data: { notes: notes.map(note_data) } }

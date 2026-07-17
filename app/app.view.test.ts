@@ -3,7 +3,8 @@ namespace $.$$ {
 	// In-memory GraphQL "server" + per-operation call counters.
 	// Likes increment statefully, like the real mock server, so a refetch
 	// after a Like returns changed data and downstream mems re-run.
-	function graphql_mock() {
+	// `pinned_id` drives the NULLABLE viewer.pinned_note field: absent = null.
+	function graphql_mock(pinned_id?: string) {
 
 		const notes = [
 			{ id: 'n1', title: 'First', body: 'Alpha', likes: 0, author: { name: 'Ann' } },
@@ -19,8 +20,13 @@ namespace $.$$ {
 
 			switch (name) {
 
-				case 'demo_app_viewer':
-					return { data: { viewer: { name: 'Tester' } } }
+				case 'demo_app_viewer': {
+					const pinned = notes.find(note => note.id === pinned_id)
+					return { data: { viewer: {
+						name: 'Tester',
+						pinned_note: pinned ? { ...pinned } : null,
+					} } }
+				}
 
 				case 'demo_app_notes':
 					return { data: { notes: notes.map(note => ({ ...note })) } }
@@ -125,6 +131,29 @@ namespace $.$$ {
 				$mol_assert_equal(app.viewer_static().viewer.name, 'Tester')
 				$mol_assert_equal(app.static_fetches(), 1)
 				$mol_assert_equal(calls['demo_app_viewer'], 1) // exactly once: the opt-out
+
+			})
+		},
+
+		'nullable pinned note: a present ref unmasks into the pinned panel'($) {
+			const { transport } = graphql_mock('n2')
+			with_transport(transport, () => {
+
+				const app = $demo_app.make({ $ })
+
+				$mol_assert_equal(app.Pinned().title(), 'Pinned: Second (♥ 5)')
+
+			})
+		},
+
+		'nullable pinned note: a null ref stays null and the fallback renders'($) {
+			const { transport } = graphql_mock()
+			with_transport(transport, () => {
+
+				const app = $demo_app.make({ $ })
+
+				$mol_assert_equal(app.pinned(), null) // unmask preserved the null, no crash
+				$mol_assert_equal(app.Pinned().title(), 'No pinned note')
 
 			})
 		},

@@ -1,5 +1,8 @@
 query {
 	viewer {
 		name
+		pinned_note {
+			...demo_note_card_note
+		}
 	}
 }

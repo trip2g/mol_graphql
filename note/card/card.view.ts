@@ -3,18 +3,17 @@ namespace $.$$ {
 	export class $demo_note_card extends $.$demo_note_card {
 
 		/**
-		 * Opaque fragment ref bound by the parent in view.tree
-		 * (`note_ref <= card_ref*`). The tree default is `null`, hence the
-		 * `super.note_ref()` narrowing dance — standard $mol idiom.
+		 * Unmask: this component declared the fragment, so it gets the fields.
+		 * `note_ref` is typed right in the .view.tree (`note_ref null
+		 * $demo_note_card_note_ref`), and mol properties are null-by-default, so
+		 * the ref arrives as `ref | null`. The parent always binds a real ref
+		 * (schema-non-null list element), so the checked unmask asserts that:
+		 * a broken binding throws a clear error naming the fragment instead of
+		 * TS `!` letting null crash later.
 		 */
-		note_ref(): $demo_graphql_ref<$demo_note_card_note> {
-			return super.note_ref()
-		}
-
-		/** Unmask: this component declared the fragment, so it gets the fields. */
 		@ $mol_mem
 		note() {
-			return $demo_note_card_note_unmask(this.note_ref())
+			return $demo_note_card_note_unmask_not_null(this.note_ref())
 		}
 
 		note_title() {
