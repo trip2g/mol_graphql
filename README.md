@@ -39,7 +39,7 @@ and the generated symbols carry the `$demo_` prefix.
 |---|---|---|
 | `app/notes.graphql` | `app/notes.graphql.ts` | `$demo_app_notes(): demo_app_notesQuery` |
 | `app/viewer.graphql` | `app/viewer.graphql.ts` | `$demo_app_viewer(): demo_app_viewerQuery` |
-| `note/card/note.graphql` | `note/card/note.graphql.ts` | `$demo_note_card_note` + `$demo_note_card_note_unmask(ref)` |
+| `note/card/note.graphql` | `note/card/note.graphql.ts` | `$demo_note_card_note` + `$demo_note_card_note_ref` + `$demo_note_card_note_unmask(ref)` + `$demo_note_card_note_unmask_not_null(ref)` |
 | `note/card/like.graphql` | `note/card/like.graphql.ts` | `$demo_note_card_like(vars): demo_note_card_likeMutation` |
 
 The result/variables types are **baked in by the generator** (it knows the schema and
@@ -119,19 +119,83 @@ without React and without its normalized store:
   // note/card/card.view.ts
   export class $demo_note_card extends $.$demo_note_card {
 
-      // opaque ref bound by the parent in view.tree: `note_ref <= card_ref*`
-      note_ref(): $demo_graphql_ref<$demo_note_card_note> {
-          return super.note_ref()
-      }
-
       @ $mol_mem
       note() {
-          return $demo_note_card_note_unmask(this.note_ref()) // typed fields, only here
+          // checked unmask: the parent always binds a real ref (see below)
+          return $demo_note_card_note_unmask_not_null(this.note_ref())
       }
 
       note_title() { return this.note().title }
   }
   ```
+
+### Typing the ref in the .view.tree: `$<name>_ref`
+
+Alongside the fragment type, each fragment file generates a bare-name alias for its
+opaque ref:
+
+```ts
+// note/card/note.graphql.ts (generated)
+export type $demo_note_card_note = demo_note_card_noteFragment
+export type $demo_note_card_note_ref = $demo_graphql_ref<$demo_note_card_note>
+```
+
+The alias exists because a `.view.tree` property can carry a bare `$name` but not a
+generic like `$demo_graphql_ref<...>`. So the card types its input ref right in the
+tree, and needs no `.view.ts` type override at all:
+
+```
+$demo_note_card $mol_view
+	note_ref null $demo_note_card_note_ref
+```
+
+mol properties are always nullable by default, so this generates
+`note_ref(): $demo_note_card_note_ref | null` in the tree `.d.ts`. The parent binds
+the ref as before (`note_ref <= card_ref*` in [`app/app.view.tree`](app/app.view.tree)).
+
+### Two unmask helpers: nullability is preserved, never erased
+
+The masked field's type already carries the schema's nullability, and unmask keeps it.
+Each fragment generates two accessors, and the choice follows the schema:
+
+- **`$<name>_unmask(ref)`** preserves the ref's nullability: a non-null ref yields the
+  fragment, a `Ref | null` yields `Frag | null`, so the compiler forces you to handle
+  the null branch. Use it for anything the schema can null: a nullable field, a null
+  list element. The demo renders one: `User.pinned_note` is a nullable schema field,
+  and the app shows a fallback:
+
+  ```ts
+  // app/app.view.ts
+  @ $mol_mem
+  pinned() {
+      // Ref | null in, Frag | null out
+      return $demo_note_card_note_unmask($demo_app_viewer().viewer.pinned_note)
+  }
+
+  pinned_title() {
+      const note = this.pinned()
+      if (!note) return 'No pinned note' // the compiler forces this branch
+      return `Pinned: ${note.title} (♥ ${note.likes})`
+  }
+  ```
+
+- **`$<name>_unmask_not_null(ref)`** is the checked accessor for values that are
+  non-null by schema but arrive through a nullable seam (a tree-typed property is
+  `| null` by default). On a null ref it throws a clear error naming the fragment;
+  otherwise it returns the non-null fragment type. This is the safe replacement for
+  TS `!`, which has no runtime check and lets a null crash later on some unrelated
+  field access:
+
+  ```ts
+  // note/card/card.view.ts: list elements are non-null in the schema
+  @ $mol_mem
+  note() {
+      return $demo_note_card_note_unmask_not_null(this.note_ref())
+  }
+  ```
+
+Rule of thumb: nullable by schema, use `unmask` and handle the null; guaranteed
+present, use `_unmask_not_null`, never `!`.
 
 ### Convention: a mutation refetches every query on the page
 
@@ -153,8 +217,8 @@ touching generated code.
 
 To watch this live, each note card shows a `renders` counter and there is a
 `revalidate:false` static panel. Like any note: every card's counter ticks together while
-the static panel stays put ([`card.view.ts`](note/card/card.view.ts#L56-L69),
-[`app.view.ts`](app/app.view.ts#L30-L60)).
+the static panel stays put ([`card.view.ts`](note/card/card.view.ts#L40-L63),
+[`app.view.ts`](app/app.view.ts#L50-L72)).
 
 ### Choosing the refetch scope: the `revalidation` codegen mode
 
@@ -219,23 +283,23 @@ Follow these in order to see the whole idea, from a `.graphql` file to a running
 1. A component's own operations: [`app/notes.graphql`](app/notes.graphql) and
    [`note/card/note.graphql`](note/card/note.graphql). Plain files next to the component.
 2. The codegen that types them: [`codegen/molplugin.js`](codegen/molplugin.js):
-   [`renameOperations`](codegen/molplugin.js#L103-L115) rewrites the operation name to the
-   path-derived canonical; [`operationCode`](codegen/molplugin.js#L117-L157) merges spread
+   [`renameOperations`](codegen/molplugin.js#L107-L119) rewrites the operation name to the
+   path-derived canonical; [`operationCode`](codegen/molplugin.js#L121-L161) merges spread
    fragments into the sent string and emits the typed wrapper;
-   [`fragmentCode`](codegen/molplugin.js#L241-L263) emits the fragment type and `unmask`;
-   [`escapeDollars`](codegen/molplugin.js#L97-L99) is
+   [`fragmentCode`](codegen/molplugin.js#L245-L283) emits the fragment type, the ref alias and both `unmask` helpers;
+   [`escapeDollars`](codegen/molplugin.js#L101-L103) is
    the `$`-escape fix. [`codegen/preset.js`](codegen/preset.js) wires one output per file.
 3. The generated output: [`app/notes.graphql.ts`](app/notes.graphql.ts#L13-L30) (masked
    query with the fragment merged in) and
-   [`note/card/note.graphql.ts`](note/card/note.graphql.ts#L4-L13) (fragment type + `unmask`).
+   [`note/card/note.graphql.ts`](note/card/note.graphql.ts#L4-L28) (fragment type + ref alias + unmask helpers).
 4. The runtime: [`graphql/index.ts`](graphql/index.ts): the
    [request layer and refetch convention](graphql/index.ts#L80-L135), the
    [invalidation markers](graphql/index.ts#L34-L68), the
    [opaque ref type](graphql/index.ts#L136-L148).
 5. A component consuming a fragment: [`note/card/card.view.ts`](note/card/card.view.ts):
-   [`note()` unmasks the ref](note/card/card.view.ts#L15-L17);
-   [`renders()`](note/card/card.view.ts#L56-L69) is the counter that ticks on every refetch.
-6. The opt-out in action: [`app/app.view.ts`](app/app.view.ts#L44-L60):
+   [`note()` unmasks the ref](note/card/card.view.ts#L14-L17);
+   [`renders()`](note/card/card.view.ts#L40-L63) is the counter that ticks on every refetch.
+6. The opt-out in action: [`app/app.view.ts`](app/app.view.ts#L50-L72):
    `viewer_static()` passes `{ revalidate: false }`, so its counter never moves.
 
 ## Project layout
@@ -374,7 +438,10 @@ with_transport(transport, () => {
 
 What the tests prove:
 - **Fragment unmask** (`card.view.test.ts`): a fragment ref unmasks into the typed fields and the
-  card renders them. No network.
+  card renders them; a null ref stays null through `unmask` and makes `unmask_not_null` throw with
+  the fragment's name. No network.
+- **The nullable field** (`app.view.test.ts`): a present `pinned_note` renders the pinned panel,
+  a null one renders the fallback text.
 - **The refetch convention** (`app.view.test.ts`): after a like mutation, the page queries are
   re-requested (`demo_app_notes` and `demo_app_viewer` call counts go 1 → 2) and the data changes.
 - **The opt-out** (`app.view.test.ts`): a `{ revalidate: false }` query is fetched exactly once

@@ -41,7 +41,7 @@ docker-compose up --build
 |---|---|---|
 | `app/notes.graphql` | `app/notes.graphql.ts` | `$demo_app_notes(): demo_app_notesQuery` |
 | `app/viewer.graphql` | `app/viewer.graphql.ts` | `$demo_app_viewer(): demo_app_viewerQuery` |
-| `note/card/note.graphql` | `note/card/note.graphql.ts` | `$demo_note_card_note` + `$demo_note_card_note_unmask(ref)` |
+| `note/card/note.graphql` | `note/card/note.graphql.ts` | `$demo_note_card_note` + `$demo_note_card_note_ref` + `$demo_note_card_note_unmask(ref)` + `$demo_note_card_note_unmask_not_null(ref)` |
 | `note/card/like.graphql` | `note/card/like.graphql.ts` | `$demo_note_card_like(vars): demo_note_card_likeMutation` |
 
 Типы результата и переменных **вшивает генератор** (он знает схему и операцию),
@@ -125,19 +125,83 @@ graphql-codegen "anonymous operation" исчезает (в этом репози
   // note/card/card.view.ts
   export class $demo_note_card extends $.$demo_note_card {
 
-      // opaque ref bound by the parent in view.tree: `note_ref <= card_ref*`
-      note_ref(): $demo_graphql_ref<$demo_note_card_note> {
-          return super.note_ref()
-      }
-
       @ $mol_mem
       note() {
-          return $demo_note_card_note_unmask(this.note_ref()) // typed fields, only here
+          // проверяемый unmask: родитель всегда привязывает реальную ссылку (см. ниже)
+          return $demo_note_card_note_unmask_not_null(this.note_ref())
       }
 
       note_title() { return this.note().title }
   }
   ```
+
+### Тип ссылки прямо в .view.tree: `$<имя>_ref`
+
+Вместе с типом фрагмента каждый файл фрагмента генерирует алиас для непрозрачной
+ссылки - простое имя без дженериков:
+
+```ts
+// note/card/note.graphql.ts (сгенерировано)
+export type $demo_note_card_note = demo_note_card_noteFragment
+export type $demo_note_card_note_ref = $demo_graphql_ref<$demo_note_card_note>
+```
+
+Алиас нужен потому, что свойство в `.view.tree` может нести голое `$имя`, но не
+дженерик вида `$demo_graphql_ref<...>`. Поэтому карточка типизирует входную ссылку
+прямо в дереве, и переопределение типа в `.view.ts` не нужно вовсе:
+
+```
+$demo_note_card $mol_view
+	note_ref null $demo_note_card_note_ref
+```
+
+Свойства mol по умолчанию всегда nullable, так что в `.d.ts` дерева получается
+`note_ref(): $demo_note_card_note_ref | null`. Родитель привязывает ссылку как и
+раньше (`note_ref <= card_ref*` в [`app/app.view.tree`](app/app.view.tree)).
+
+### Два хелпера unmask: nullability сохраняется, а не стирается
+
+Тип замаскированного поля уже несёт nullability схемы, и unmask её не теряет.
+Каждый фрагмент генерирует два аксессора, выбор диктует схема:
+
+- **`$<имя>_unmask(ref)`** сохраняет nullability ссылки: непустая ссылка даёт
+  фрагмент, `Ref | null` даёт `Frag | null`, и компилятор заставляет обработать
+  ветку с null. Используйте его для всего, что схема может занулить: nullable-поле,
+  null-элемент списка. В демо такое поле рендерится: `User.pinned_note` в схеме
+  nullable, и приложение показывает фолбэк:
+
+  ```ts
+  // app/app.view.ts
+  @ $mol_mem
+  pinned() {
+      // Ref | null на входе, Frag | null на выходе
+      return $demo_note_card_note_unmask($demo_app_viewer().viewer.pinned_note)
+  }
+
+  pinned_title() {
+      const note = this.pinned()
+      if (!note) return 'No pinned note' // эту ветку требует компилятор
+      return `Pinned: ${note.title} (♥ ${note.likes})`
+  }
+  ```
+
+- **`$<имя>_unmask_not_null(ref)`** - проверяемый аксессор для значений, которые
+  по схеме не бывают null, но приходят через nullable-шов (типизированное в дереве
+  свойство всегда `| null`). На null-ссылке он бросает понятную ошибку с именем
+  фрагмента, иначе возвращает непустой тип фрагмента. Это безопасная замена TS `!`:
+  у `!` нет проверки в рантайме, и null уронит код позже, на обращении к
+  какому-нибудь полю:
+
+  ```ts
+  // note/card/card.view.ts: элементы списка в схеме не бывают null
+  @ $mol_mem
+  note() {
+      return $demo_note_card_note_unmask_not_null(this.note_ref())
+  }
+  ```
+
+Правило простое: nullable по схеме - `unmask` и обработайте null; гарантированно
+есть - `_unmask_not_null`, а не `!`.
 
 ### Соглашение: мутация перезапрашивает все запросы на странице
 
@@ -162,8 +226,8 @@ graphql-codegen "anonymous operation" исчезает (в этом репози
 Чтобы увидеть это вживую: каждая карточка заметки показывает счётчик `renders`,
 а рядом есть статическая панель с `revalidate:false`. Лайкните любую заметку -
 счётчики всех карточек тикают вместе, а статическая панель стоит на месте
-([`card.view.ts`](note/card/card.view.ts#L56-L69),
-[`app.view.ts`](app/app.view.ts#L30-L60)).
+([`card.view.ts`](note/card/card.view.ts#L40-L63),
+[`app.view.ts`](app/app.view.ts#L50-L72)).
 
 ### Выбор области перезапроса: режим codegen `revalidation`
 
@@ -233,24 +297,24 @@ Codegen объединяет объявленные типы с `writes` и вы
 1. Собственные операции компонента: [`app/notes.graphql`](app/notes.graphql) и
    [`note/card/note.graphql`](note/card/note.graphql). Обычные файлы рядом с компонентом.
 2. Codegen, который их типизирует: [`codegen/molplugin.js`](codegen/molplugin.js):
-   [`renameOperations`](codegen/molplugin.js#L103-L115) переписывает имя операции на
+   [`renameOperations`](codegen/molplugin.js#L107-L119) переписывает имя операции на
    каноническое из пути файла;
-   [`operationCode`](codegen/molplugin.js#L117-L157) вливает подключённые фрагменты в
+   [`operationCode`](codegen/molplugin.js#L121-L161) вливает подключённые фрагменты в
    отправляемую строку и выдаёт типизированную обёртку;
-   [`fragmentCode`](codegen/molplugin.js#L241-L263) выдаёт тип фрагмента и `unmask`;
-   [`escapeDollars`](codegen/molplugin.js#L97-L99) - фикс с экранированием `$`.
+   [`fragmentCode`](codegen/molplugin.js#L245-L283) выдаёт тип фрагмента, алиас ссылки и оба хелпера `unmask`;
+   [`escapeDollars`](codegen/molplugin.js#L101-L103) - фикс с экранированием `$`.
    [`codegen/preset.js`](codegen/preset.js) настраивает один выходной файл на каждый входной.
 3. Сгенерированный результат: [`app/notes.graphql.ts`](app/notes.graphql.ts#L13-L30)
    (замаскированный запрос с влитым фрагментом) и
-   [`note/card/note.graphql.ts`](note/card/note.graphql.ts#L4-L13) (тип фрагмента + `unmask`).
+   [`note/card/note.graphql.ts`](note/card/note.graphql.ts#L4-L28) (тип фрагмента + алиас ссылки + хелперы unmask).
 4. Рантайм: [`graphql/index.ts`](graphql/index.ts):
    [слой запросов и соглашение о перезапросе](graphql/index.ts#L80-L135),
    [маркеры инвалидации](graphql/index.ts#L34-L68),
    [непрозрачный тип ссылки](graphql/index.ts#L136-L148).
 5. Компонент, потребляющий фрагмент: [`note/card/card.view.ts`](note/card/card.view.ts):
-   [`note()` снимает маску со ссылки](note/card/card.view.ts#L15-L17);
-   [`renders()`](note/card/card.view.ts#L56-L69) - счётчик, тикающий на каждом перезапросе.
-6. Опт-аут в действии: [`app/app.view.ts`](app/app.view.ts#L44-L60):
+   [`note()` снимает маску со ссылки](note/card/card.view.ts#L14-L17);
+   [`renders()`](note/card/card.view.ts#L40-L63) - счётчик, тикающий на каждом перезапросе.
+6. Опт-аут в действии: [`app/app.view.ts`](app/app.view.ts#L50-L72):
    `viewer_static()` передаёт `{ revalidate: false }`, поэтому его счётчик не двигается.
 
 ## Структура проекта
@@ -397,7 +461,11 @@ with_transport(transport, () => {
 
 Что доказывают тесты:
 - **Снятие маски с фрагмента** (`card.view.test.ts`): ссылка на фрагмент
-  разворачивается в типизированные поля, и карточка их рендерит. Без сети.
+  разворачивается в типизированные поля, и карточка их рендерит; null-ссылка
+  проходит через `unmask` как null, а `unmask_not_null` бросает ошибку с именем
+  фрагмента. Без сети.
+- **Nullable-поле** (`app.view.test.ts`): с непустым `pinned_note` рендерится
+  панель закреплённой заметки, с null - фолбэк.
 - **Соглашение о перезапросе** (`app.view.test.ts`): после мутации лайка запросы
   страницы уходят повторно (счётчики вызовов `demo_app_notes` и `demo_app_viewer`
   растут 1 → 2), и данные меняются.
