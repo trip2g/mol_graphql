@@ -167,6 +167,10 @@ terminals. The mam builder picks up regenerated `.graphql.ts` like any source ch
   every `$` in emitted GraphQL strings and stock-plugin type output as `\u0024`
   (identical to TS/JS at both type and runtime level). If you hand-write such tokens in
   a module `.ts`, escape them the same way (see `demo/graphql/index.ts`).
+  Prior art avoided this by hand — adding empty stub directories named after the phantom
+  tokens (`fragment/`, `id/`, …) so the scanner resolves them to nothing. Escaping every
+  `$` is the canonical fix: no stub dirs, and it survives new field/variable names
+  automatically.
 - **`mam.ts`/`mam.jam.js` must exist at the workspace root** (they declare `class $`);
   without them every `$`-as-type use in mol fails to compile.
 - The generated wrapper for an operation that spreads fragments carries a
