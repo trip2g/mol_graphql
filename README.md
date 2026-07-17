@@ -18,8 +18,8 @@ spread by name, masked for everyone else, with zero imports and no changes to th
 $mol/mam builder.
 
 **Live demo:** https://trip2g.github.io/mol_graphql/ (runs entirely in the browser: the
-`$demo_static` entry bundles the app together with an in-browser GraphQL mock, no
-server; likes reset on reload).
+`$demo_pages` entry links the in-browser GraphQL mock into the bundle alongside the
+app, no server; likes reset on reload).
 
 ```sh
 docker-compose up --build
@@ -564,9 +564,10 @@ server/
   schema.graphql        the SDL: single source of truth for server AND codegen
   index.mjs             graphql-yoga mock server with in-memory data
 graphql/index.ts        runtime: request fn, error, reactive marker, ref type
+graphql/mock/           $demo_graphql_mock: in-browser mock; linking it swaps the transport
 graphql/schema.graphql.ts   (generated) shared scalar/enum/input types
 app/                    $demo_app: page, plain query + fragment-composing query
-static/                 $demo_static: static entry, app + in-browser mock transport
+pages/                  $demo_pages: thin Pages entry, links the app + the mock
 note/card/              $demo_note_card: fragment + unmask + typed mutation
 package.json            DEV TOOL only: codegen + mock server (not part of the build)
 ```
@@ -585,7 +586,7 @@ npm install
 |---|---|
 | `npm start` | mam dev server on :9080 (`/demo/app/`); run the mock server alongside |
 | `npx mam demo/app` | one-shot production build into `demo/app/-/` (type-checks the bundle, runs tests) |
-| `npx mam demo/static` | build the static serverless entry into `demo/static/-/` |
+| `npx mam demo/pages` | build the serverless Pages entry into `demo/pages/-/` |
 
 | command (from `demo/`, this repo) | what |
 |---|---|
@@ -602,12 +603,16 @@ like any source change.
 
 [`deploy.yml`](.github/workflows/deploy.yml) is the canonical hyoo-ru pipeline:
 `hyoo-ru/mam_build@master2` assembles the workspace (clones `hyoo-ru/mam` + deps,
-mounts this repo as `package: 'demo'`), builds `demo/app` and `demo/static`, runs
-every `*.test.ts`; then the `demo/static/-` folder is published to Pages. The
+mounts this repo as `package: 'demo'`), builds `demo/app` and `demo/pages`, runs
+every `*.test.ts`; then the `demo/pages/-` folder is published to Pages. The
 default `GITHUB_TOKEN` is enough: everything mam_build clones is public. The deployed
-site is `$demo_static` ([`static/static.ts`](static/static.ts)): one bundle
-where the transport seam is swapped for a sync in-browser mock answering each operation
-from the same dataset as the mock server. Keep it in sync with
+site is `$demo_pages` ([`pages/pages.ts`](pages/pages.ts)): a thin entry that renders
+the app and explicitly links `$demo_graphql_mock`
+([`graphql/mock/mock.ts`](graphql/mock/mock.ts)). That link is the whole transport
+choice - composition, not a file-placement trick: the mock module's body swaps the
+transport seam for a sync in-browser mock answering each operation from the same
+dataset as the mock server, while `demo/app`, which never references the mock, keeps
+the server transport. Keep the dataset in sync with
 [`server/mock.mjs`](server/mock.mjs) by hand.
 
 ## How to copy this into your project
@@ -685,14 +690,16 @@ server answers normally. The server never sees `\u0024`.
 ### The comment-token trap (a real bug this repo hit)
 
 The same rule bites hand-written modules. A comment in
-[`graphql/index.ts`](graphql/index.ts) once named the static mock entry by its
-symbol (`$demo_static`). Because `graphql/index.ts` is a real dependency of the app,
+[`graphql/index.ts`](graphql/index.ts) once named the in-browser mock module by its
+live symbol. Because `graphql/index.ts` is a real dependency of the app,
 that one comment token pulled the whole in-browser mock into the production app
 bundle: the app rendered mock data and never called the server. The fix is NOT to
 escape here - a comment is prose, not code that needs the character - but to DROP
-the `$`: the comment now says "the static entry (static/static.ts)" instead of the
-live symbol. If a comment names a module you do not want linked, do not write it as
-a live `$`-token.
+the `$`: the comment now names the mock in words, "the mock module
+(graphql/mock/mock.ts)", instead of the live symbol. The flip side of the same rule
+is what the Pages entry does on purpose: `$demo_pages_transport = $demo_graphql_mock`
+is a real code reference, so the mock links into THAT bundle by explicit choice. If a
+comment names a module you do not want linked, do not write it as a live `$`-token.
 
 ### The rule
 

@@ -1,22 +1,18 @@
 namespace $ {
 
-	// $demo_static: the STATIC entry - $demo_app with an in-browser GraphQL
-	// mock instead of a server. `mam demo/static` bundles it; the bundle's
-	// index.html renders $demo_app; deploy `static/-` to any static host
-	// (GitHub Pages) and the demo works with zero network dependencies.
-	// A sibling of app/ on purpose: `mam demo/app` bundles the whole app/
-	// subtree, so this module must live OUTSIDE it or the transport swap
-	// below would leak into the real app bundle.
+	// $demo_graphql_mock: the in-browser GraphQL mock. LINKING this module is
+	// what activates it: the module body swaps the transport seam
+	// ($demo_graphql_transport is an `export let` read on every request - the
+	// same swap the tests do), so any entry that references this module gets
+	// the mock, and any bundle that does not stays on the real server
+	// transport. The Pages entry (pages/pages.ts) links it explicitly; the
+	// real app (app/) never references it, so `mam demo/app` stays clean by
+	// construction.
 	//
-	// This module only swaps the transport seam ($demo_graphql_transport is an
-	// `export let` read on every request - same swap the tests do). It answers
-	// each operation by name from the same in-memory dataset as the real mock
-	// server (server/mock.mjs); keep the two in sync by hand. Likes increment
-	// statefully and reset on reload. Synchronous on purpose: the fiber runtime
-	// expects the transport to return a value.
-
-	/** Pulls the app into this bundle: the entry's index.html renders $demo_app. */
-	export const $demo_static_root = () => $demo_app
+	// The mock answers each operation by name from the same in-memory dataset
+	// as the real mock server (server/mock.mjs); keep the two in sync by hand.
+	// Likes increment statefully and reset on reload. Synchronous on purpose:
+	// the fiber runtime expects the transport to return a value.
 
 	const users = [
 		{ id: 'u1', name: 'Ada Lovelace', pinned_note_id: 'n2' as string | null },
@@ -55,7 +51,8 @@ namespace $ {
 		author: { name: users.find(user => user.id === note.author_id)!.name },
 	})
 
-	$demo_graphql_transport = (query, variables) => {
+	/** The mock transport: resolves each operation by name against the in-memory dataset. */
+	export const $demo_graphql_mock = (query: string, variables?: object) => {
 
 		const name = /^\s*(?:query|mutation)\s+(\w+)/.exec(query)?.[1] ?? ''
 
@@ -86,5 +83,8 @@ namespace $ {
 		}
 
 	}
+
+	// the swap: importing this module replaces the server transport with the mock
+	$demo_graphql_transport = $demo_graphql_mock
 
 }

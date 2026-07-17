@@ -18,8 +18,8 @@
 единого импорта и без изменений в сборщике $mol/mam.
 
 **Живое демо:** https://trip2g.github.io/mol_graphql/ (работает целиком в браузере:
-входная точка `$demo_static` собирает приложение вместе с браузерным GraphQL-моком,
-без сервера; лайки сбрасываются при перезагрузке).
+входная точка `$demo_pages` линкует браузерный GraphQL-мок в бандл вместе с
+приложением, без сервера; лайки сбрасываются при перезагрузке).
 
 ```sh
 docker-compose up --build
@@ -581,9 +581,10 @@ server/
   schema.graphql        the SDL: single source of truth for server AND codegen
   index.mjs             graphql-yoga mock server with in-memory data
 graphql/index.ts        runtime: request fn, error, reactive marker, ref type
+graphql/mock/           $demo_graphql_mock: in-browser mock; linking it swaps the transport
 graphql/schema.graphql.ts   (generated) shared scalar/enum/input types
 app/                    $demo_app: page, plain query + fragment-composing query
-static/                 $demo_static: static entry, app + in-browser mock transport
+pages/                  $demo_pages: thin Pages entry, links the app + the mock
 note/card/              $demo_note_card: fragment + unmask + typed mutation
 package.json            DEV TOOL only: codegen + mock server (not part of the build)
 ```
@@ -602,7 +603,7 @@ npm install
 |---|---|
 | `npm start` | dev-сервер mam на :9080 (`/demo/app/`); рядом запустите мок-сервер |
 | `npx mam demo/app` | разовая продакшен-сборка в `demo/app/-/` (проверяет типы бандла, запускает тесты) |
-| `npx mam demo/static` | сборка статической бессерверной входной точки в `demo/static/-/` |
+| `npx mam demo/pages` | сборка бессерверной входной точки Pages в `demo/pages/-/` |
 
 | команда (из `demo/`, этот репозиторий) | что делает |
 |---|---|
@@ -620,12 +621,16 @@ npm install
 [`deploy.yml`](.github/workflows/deploy.yml) - каноничный пайплайн hyoo-ru:
 `hyoo-ru/mam_build@master2` собирает воркспейс (клонирует `hyoo-ru/mam` +
 зависимости, монтирует этот репозиторий как `package: 'demo'`), билдит `demo/app`
-и `demo/static`, запускает все `*.test.ts`; затем папка `demo/static/-`
+и `demo/pages`, запускает все `*.test.ts`; затем папка `demo/pages/-`
 публикуется на Pages. Стандартного `GITHUB_TOKEN` достаточно: всё, что клонирует
-mam_build, публично. Задеплоенный сайт - это `$demo_static`
-([`static/static.ts`](static/static.ts)): один бандл, где транспортный шов
-заменён на синхронный браузерный мок, отвечающий на каждую операцию из того же
-набора данных, что и мок-сервер. Синхронизируйте его с
+mam_build, публично. Задеплоенный сайт - это `$demo_pages`
+([`pages/pages.ts`](pages/pages.ts)): тонкая входная точка, которая рендерит
+приложение и явно линкует `$demo_graphql_mock`
+([`graphql/mock/mock.ts`](graphql/mock/mock.ts)). Эта ссылка и есть весь выбор
+транспорта - композиция, а не трюк с расположением файлов: тело модуля-мока
+подменяет транспортный шов на синхронный браузерный мок, отвечающий на каждую
+операцию из того же набора данных, что и мок-сервер, а `demo/app`, который мок
+не упоминает, остаётся на серверном транспорте. Синхронизируйте набор данных с
 [`server/mock.mjs`](server/mock.mjs) вручную.
 
 ## Как перенести это в свой проект
@@ -713,14 +718,17 @@ GraphQL. Конкретно: мутация лайка уходит как
 ### Ловушка токена в комментарии (реальный баг этого репозитория)
 
 То же правило бьёт и по модулям, написанным руками. Комментарий в
-[`graphql/index.ts`](graphql/index.ts) когда-то называл статическую мок-входную
-точку её символом (`$demo_static`). Поскольку `graphql/index.ts` - настоящая
+[`graphql/index.ts`](graphql/index.ts) когда-то называл браузерный мок-модуль
+его живым символом. Поскольку `graphql/index.ts` - настоящая
 зависимость приложения, этот единственный токен в комментарии втянул весь
 браузерный мок в продакшен-бандл: приложение рисовало мок-данные и никогда не
 ходило на сервер. Фикс - НЕ экранировать (комментарий - это проза, символ ей не
-нужен), а УБРАТЬ `$`: теперь комментарий говорит "the static entry
-(static/static.ts)" вместо живого символа. Если комментарий называет модуль,
-который вы не хотите линковать, не пишите его живым `$`-токеном.
+нужен), а УБРАТЬ `$`: теперь комментарий называет мок словами, "the mock module
+(graphql/mock/mock.ts)", вместо живого символа. Обратная сторона того же правила -
+то, что входная точка Pages делает нарочно: `$demo_pages_transport =
+$demo_graphql_mock` - настоящая ссылка в коде, поэтому мок линкуется в ТОТ бандл
+по явному выбору. Если комментарий называет модуль, который вы не хотите
+линковать, не пишите его живым `$`-токеном.
 
 ### Правило
 

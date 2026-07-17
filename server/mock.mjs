@@ -1,6 +1,6 @@
 // Shared mock: in-memory data + resolvers.
 // Used by the real mock server (index.mjs). The canonical in-browser mock
-// (static/static.ts) mirrors this dataset by hand - keep them in sync.
+// (graphql/mock/mock.ts) mirrors this dataset by hand - keep them in sync.
 export const users = [
 	{ id: 'u1', name: 'Ada Lovelace', pinned_note_id: 'n2' },
 	{ id: 'u2', name: 'Alan Turing', pinned_note_id: null },

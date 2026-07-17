@@ -20,7 +20,7 @@ namespace $ {
 	/**
 	 * Transport seam: how an operation reaches an executor. Overridable -
 	 * the default POSTs to $demo_graphql_endpoint() (sync-over-fiber via
-	 * $mol_fetch); the static entry (static/static.ts, unnamed here so the
+	 * $mol_fetch); the mock module (graphql/mock/mock.ts, unnamed here so the
 	 * builder does not bundle it in) swaps in an in-browser mock. A replacement
 	 * must return synchronously too (the fiber runtime expects it).
 	 */
