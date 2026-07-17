@@ -8,5 +8,5 @@ node
 **/-meta.tree
 **/-node
 app/-
-app/static/-
+static/-
 pages/dist

@@ -20,8 +20,8 @@ namespace $ {
 	/**
 	 * Transport seam: how an operation reaches an executor. Overridable -
 	 * the default POSTs to $demo_graphql_endpoint() (sync-over-fiber via
-	 * $mol_fetch); the static entry $demo_app_static (app/static/static.ts)
-	 * swaps in an in-browser mock with no server at all. A replacement
+	 * $mol_fetch); the static entry (static/static.ts, unnamed here so the
+	 * builder does not bundle it in) swaps in an in-browser mock. A replacement
 	 * must return synchronously too (the fiber runtime expects it).
 	 */
 	export let $demo_graphql_transport = (query: string, variables?: object) =>

@@ -18,7 +18,7 @@
 единого импорта и без изменений в сборщике $mol/mam.
 
 **Живое демо:** https://trip2g.github.io/mol_graphql/ (работает целиком в браузере:
-входная точка `$demo_app_static` собирает приложение вместе с браузерным GraphQL-моком,
+входная точка `$demo_static` собирает приложение вместе с браузерным GraphQL-моком,
 без сервера; лайки сбрасываются при перезагрузке).
 
 ```sh
@@ -583,7 +583,7 @@ server/
 graphql/index.ts        runtime: request fn, error, reactive marker, ref type
 graphql/schema.graphql.ts   (generated) shared scalar/enum/input types
 app/                    $demo_app: page, plain query + fragment-composing query
-app/static/             $demo_app_static: static entry, app + in-browser mock transport
+static/                 $demo_static: static entry, app + in-browser mock transport
 note/card/              $demo_note_card: fragment + unmask + typed mutation
 pages/                  FALLBACK static-site assembly (esbuild + graphql-js executor)
 package.json            DEV TOOL only: codegen + mock server (not part of the build)
@@ -603,7 +603,7 @@ npm install
 |---|---|
 | `npm start` | dev-сервер mam на :9080 (`/demo/app/`); рядом запустите мок-сервер |
 | `npx mam demo/app` | разовая продакшен-сборка в `demo/app/-/` (проверяет типы бандла, запускает тесты) |
-| `npx mam demo/app/static` | сборка статической бессерверной входной точки в `demo/app/static/-/` |
+| `npx mam demo/static` | сборка статической бессерверной входной точки в `demo/static/-/` |
 
 | команда (из `demo/`, этот репозиторий) | что делает |
 |---|---|
@@ -621,10 +621,10 @@ npm install
 [`deploy.yml`](.github/workflows/deploy.yml) - каноничный пайплайн hyoo-ru:
 `hyoo-ru/mam_build@master2` собирает воркспейс (клонирует `hyoo-ru/mam` +
 зависимости, монтирует этот репозиторий как `package: 'demo'`), билдит `demo/app`
-и `demo/app/static`, запускает все `*.test.ts`; затем папка `demo/app/static/-`
+и `demo/static`, запускает все `*.test.ts`; затем папка `demo/static/-`
 публикуется на Pages. Стандартного `GITHUB_TOKEN` достаточно: всё, что клонирует
-mam_build, публично. Задеплоенный сайт - это `$demo_app_static`
-([`app/static/static.ts`](app/static/static.ts)): один бандл, где транспортный шов
+mam_build, публично. Задеплоенный сайт - это `$demo_static`
+([`static/static.ts`](static/static.ts)): один бандл, где транспортный шов
 заменён на синхронный браузерный мок, отвечающий на каждую операцию из того же
 набора данных, что и мок-сервер. Синхронизируйте его с
 [`server/mock.mjs`](server/mock.mjs) вручную.

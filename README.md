@@ -18,7 +18,7 @@ spread by name, masked for everyone else, with zero imports and no changes to th
 $mol/mam builder.
 
 **Live demo:** https://trip2g.github.io/mol_graphql/ (runs entirely in the browser: the
-`$demo_app_static` entry bundles the app together with an in-browser GraphQL mock, no
+`$demo_static` entry bundles the app together with an in-browser GraphQL mock, no
 server; likes reset on reload).
 
 ```sh
@@ -566,7 +566,7 @@ server/
 graphql/index.ts        runtime: request fn, error, reactive marker, ref type
 graphql/schema.graphql.ts   (generated) shared scalar/enum/input types
 app/                    $demo_app: page, plain query + fragment-composing query
-app/static/             $demo_app_static: static entry, app + in-browser mock transport
+static/                 $demo_static: static entry, app + in-browser mock transport
 note/card/              $demo_note_card: fragment + unmask + typed mutation
 pages/                  FALLBACK static-site assembly (esbuild + graphql-js executor)
 package.json            DEV TOOL only: codegen + mock server (not part of the build)
@@ -586,7 +586,7 @@ npm install
 |---|---|
 | `npm start` | mam dev server on :9080 (`/demo/app/`); run the mock server alongside |
 | `npx mam demo/app` | one-shot production build into `demo/app/-/` (type-checks the bundle, runs tests) |
-| `npx mam demo/app/static` | build the static serverless entry into `demo/app/static/-/` |
+| `npx mam demo/static` | build the static serverless entry into `demo/static/-/` |
 
 | command (from `demo/`, this repo) | what |
 |---|---|
@@ -603,10 +603,10 @@ like any source change.
 
 [`deploy.yml`](.github/workflows/deploy.yml) is the canonical hyoo-ru pipeline:
 `hyoo-ru/mam_build@master2` assembles the workspace (clones `hyoo-ru/mam` + deps,
-mounts this repo as `package: 'demo'`), builds `demo/app` and `demo/app/static`, runs
-every `*.test.ts`; then the `demo/app/static/-` folder is published to Pages. The
+mounts this repo as `package: 'demo'`), builds `demo/app` and `demo/static`, runs
+every `*.test.ts`; then the `demo/static/-` folder is published to Pages. The
 default `GITHUB_TOKEN` is enough: everything mam_build clones is public. The deployed
-site is `$demo_app_static` ([`app/static/static.ts`](app/static/static.ts)): one bundle
+site is `$demo_static` ([`static/static.ts`](static/static.ts)): one bundle
 where the transport seam is swapped for a sync in-browser mock answering each operation
 from the same dataset as the mock server. Keep it in sync with
 [`server/mock.mjs`](server/mock.mjs) by hand.

@@ -1,7 +1,7 @@
 # CANONICAL hyoo-ru build: the central mam workspace builds this repo as its
 # `demo` package (hyoo-ru/mam_build clones mam + deps, provides the bootstrap
 # mam.ts/tsconfig, mounts this repo at demo/, builds each module into <mod>/-
-# and runs its tests). The deployed site is the $demo_app_static entry: the
+# and runs its tests). The deployed site is the $demo_static entry: the
 # app + an in-browser GraphQL mock in ONE bundle - no server, no extra step.
 #
 # Token: mam_build defaults to the workflow's GITHUB_TOKEN (everything it
@@ -11,7 +11,7 @@
 #
 # Publishing uses the same Pages mechanism this repo already has configured
 # (actions/deploy-pages, Pages source = "GitHub Actions"). The fully-canonical
-# alternative, hyoo-ru/gh-deploy@v4.4.1 with folder 'demo/app/static/-',
+# alternative, hyoo-ru/gh-deploy@v4.4.1 with folder 'demo/static/-',
 # pushes a gh-pages branch instead and would need the Pages source switched
 # to that branch plus `contents: write`.
 name: Deploy demo to GitHub Pages (mam_build)
@@ -35,17 +35,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # builds workspace modules demo/app (server-mode bundle, proves it still
-      # compiles) and demo/app/static (the Pages entry); runs *.test.ts of both
+      # compiles) and demo/static (the Pages entry); runs *.test.ts of both
       - uses: hyoo-ru/mam_build@master2
         with:
           package: 'demo'
-          modules: 'app app/static'
+          modules: 'app static'
 
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: demo/app/static/-
+          path: demo/static/-
 
   deploy:
     needs: build
