@@ -131,7 +131,7 @@ namespace $.$$ {
 
 				// initial render of both cards, every probe at 1
 				$mol_assert_equal(card_likes.label(), '♥ 0')
-				$mol_assert_equal(card_author.label(), '— Ann')
+				$mol_assert_equal(card_author.label(), '- Ann')
 				$mol_assert_equal(card_likes.renders(), 1)
 				$mol_assert_equal(card_author.renders(), 1)
 				$mol_assert_equal(card.renders(), 1)
@@ -151,7 +151,7 @@ namespace $.$$ {
 
 				// ...but deep-equal regions never re-render: $mol_compare_deep
 				// in the memo atoms cut the propagation
-				$mol_assert_equal(card_author.label(), '— Ann')
+				$mol_assert_equal(card_author.label(), '- Ann')
 				$mol_assert_equal(card_author.renders(), 1)
 				$mol_assert_equal(other_author.renders(), 1)
 				$mol_assert_equal(other_likes.renders(), 1)

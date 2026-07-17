@@ -35,7 +35,7 @@ namespace $.$$ {
 		 */
 		@ $mol_mem
 		author_name() {
-			return `— ${this.note().author.name}`
+			return `- ${this.note().author.name}`
 		}
 
 		/** Same wiring as author_name(), but likes DO change: the atom emits and the Likes zone re-renders. */

@@ -68,7 +68,7 @@ namespace $.$$ {
 		}
 
 		static_title() {
-			return `revalidate:false — not refetched · viewer: ${this.viewer_static().viewer.name} · fetches: ${this.static_fetches()}`
+			return `revalidate:false - not refetched · viewer: ${this.viewer_static().viewer.name} · fetches: ${this.static_fetches()}`
 		}
 
 	}

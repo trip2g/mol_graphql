@@ -46,7 +46,7 @@ namespace $.$$ {
 			const author = card.Author() as $demo_note_card_zone
 			const likes = card.Likes() as $demo_note_card_zone
 
-			$mol_assert_equal(author.Label().title(), '— Ann')
+			$mol_assert_equal(author.Label().title(), '- Ann')
 			$mol_assert_equal(likes.Label().title(), '♥ 2')
 			$mol_assert_equal(card.renders(), 1)
 			$mol_assert_equal(author.renders(), 1)
