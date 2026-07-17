@@ -199,3 +199,19 @@ terminals. The mam builder picks up regenerated `.graphql.ts` like any source ch
   (its audit fails the build on any TS error). A whole-workspace `tsc -p .` also
   drags in mol's unbuilt demo modules, so expect noise there; the bundle audit is the
   real gate.
+
+## Further reading
+
+The fragment model here follows Relay's, without its runtime store. The philosophy:
+components own their data requirements, declared next to the code that uses them.
+
+- [Relay: Thinking in Relay](https://relay.dev/docs/principles-and-architecture/thinking-in-relay/).
+  Why each component declares its own data as a fragment and composes them.
+- [Relay: Guided tour, rendering fragments](https://relay.dev/docs/guided-tour/rendering/fragments/).
+  The exact rendering and masking model this demo reproduces.
+- [Relay: Thinking in GraphQL](https://relay.dev/docs/principles-and-architecture/thinking-in-graphql/).
+  The data-fetching philosophy behind it.
+- [urql: Document caching](https://commerce.nearform.com/open-source/urql/docs/basics/document-caching/).
+  A lighter cache than Relay's normalized store, closer to the "just refetch" choice here.
+- [Павел Черторогов: ApolloClient или Relay с фрагментами (YouTube, RU)](https://www.youtube.com/watch?v=VdoPraj0QqU).
+  Fragments, "hairy" GraphQL, and TypeScript.
