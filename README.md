@@ -224,6 +224,48 @@ terminals. The mam builder picks up regenerated `.graphql.ts` like any source ch
 - The app calls `http://localhost:4000/graphql` (see `$demo_graphql_endpoint`, 
   override it for other setups). CORS is open on the mock server.
 
+## Testing query/mutation components
+
+$mol tests live next to the code: [`card.view.test.ts`](demo/note/card/card.view.test.ts),
+[`app.view.test.ts`](demo/app/app.view.test.ts). They use `$mol_test` + `$mol_assert`, and
+`npm run build` runs every `*.test.ts` (mam compiles them into `demo/app/-/node.test.js` and
+runs it; a failing test fails the build). Run just the bundle with
+`node --enable-source-maps demo/app/-/node.test.js`.
+
+GraphQL components are tested with NO server by mocking the transport seam. `$demo_graphql_transport`
+is a namespace `export let`, so a test reassigns it to a mock that counts calls per operation and
+answers from a tiny in-memory store, then restores it in `finally`:
+
+```ts
+// demo/app/app.view.test.ts (sketch)
+const { calls, transport } = graphql_mock()          // per-operation call counter + in-memory store
+with_transport(transport, () => {
+	const app = $demo_app.make({ $ })
+	$mol_assert_equal(app.greeting(), 'Reading list of Ada Lovelace')
+	$mol_assert_equal(calls.DemoAppNotes, 1)
+	// mutate, then re-read, then assert the page queries refetched
+})
+```
+
+What the tests prove:
+- **Fragment unmask** (`card.view.test.ts`): a fragment ref unmasks into the typed fields and the
+  card renders them. No network.
+- **The refetch convention** (`app.view.test.ts`): after a like mutation, the page queries are
+  re-requested (`DemoAppNotes` and `DemoAppViewer` call counts go 1 → 2) and the data changes.
+- **The opt-out** (`app.view.test.ts`): a `{ revalidate: false }` query is fetched exactly once
+  across a mutation, and a `{ revalidate: false }` mutation leaves the page queries put.
+
+Worth knowing:
+- The mock transport is synchronous (same contract as the Pages mock), so cases are plain sync
+  functions. Reading a `$mol_mem` in a test just computes it.
+- Refetch is lazy: a mutation marks the page-query cells stale but nothing recomputes until the next
+  read, so assert query counts AFTER re-reading.
+- `$mol_mem` skips deep-equal recomputes, so a stateful mock (likes actually increment) is needed for
+  a re-render to be observable.
+- The per-case isolated `$` cannot intercept the transport (free functions read the global `$`), so
+  the mock is a global swap restored in `finally`. That is leak-proof because $mol runs cases
+  sequentially.
+
 ## What's mocked / simplified
 
 - The GraphQL server is graphql-yoga with fixed in-memory data (likes actually
