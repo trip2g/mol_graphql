@@ -1,8 +1,8 @@
 # $mol + GraphQL codegen: Relay's fragment way, without React
 
 A copy-paste-able starter showing how to wire **$mol** components to a GraphQL API with
-**full end-to-end typing** and **Relay-style fragments** — declared per component,
-spread by name, masked for everyone else — with zero imports and no changes to the
+**full end-to-end typing** and **Relay-style fragments**, declared per component,
+spread by name, masked for everyone else, with zero imports and no changes to the
 $mol/mam builder.
 
 ```sh
@@ -18,19 +18,19 @@ refetch). Everything is typed from the schema down to the component code.
 
 Each component module co-locates its GraphQL operations as separate `.graphql` files.
 A watch codegen (`graphql-codegen` + ~150 lines of custom preset/plugin) generates a
-`<name>.graphql.ts` next to each — a thin, fully-typed wrapper in the global
+`<name>.graphql.ts` next to each: a thin, fully-typed wrapper in the global
 `namespace $`. The $mol builder (`mam`) then compiles those generated files as ordinary
 module TypeScript. **Two builders meet through a file seam**: graphql-codegen writes
-`.graphql.ts`, mam compiles it — exactly like `.view.tree` → `-view.tree/*.d.ts` works
+`.graphql.ts`, mam compiles it, exactly like `.view.tree` → `-view.tree/*.d.ts` works
 in $mol itself. The generated symbol `$<module>_<opname>` appears in `namespace $`
 with zero imports.
 
-```
-demo/app/notes.graphql          →  demo/app/notes.graphql.ts          $demo_app_notes(): DemoAppNotesQuery
-demo/app/viewer.graphql         →  demo/app/viewer.graphql.ts         $demo_app_viewer(): DemoAppViewerQuery
-demo/note/card/note.graphql     →  demo/note/card/note.graphql.ts     $demo_note_card_note + $demo_note_card_note_unmask(ref)
-demo/note/card/like.graphql     →  demo/note/card/like.graphql.ts     $demo_note_card_like(vars): DemoNoteCardLikeMutation
-```
+| `.graphql` source | generated `.graphql.ts` | exported symbol |
+|---|---|---|
+| `demo/app/notes.graphql` | `demo/app/notes.graphql.ts` | `$demo_app_notes(): DemoAppNotesQuery` |
+| `demo/app/viewer.graphql` | `demo/app/viewer.graphql.ts` | `$demo_app_viewer(): DemoAppViewerQuery` |
+| `demo/note/card/note.graphql` | `demo/note/card/note.graphql.ts` | `$demo_note_card_note` + `$demo_note_card_note_unmask(ref)` |
+| `demo/note/card/like.graphql` | `demo/note/card/like.graphql.ts` | `$demo_note_card_like(vars): DemoNoteCardLikeMutation` |
 
 The result/variables types are **baked in by the generator** (it knows the schema and
 the operation), so there is no reliance on byte-for-byte string-literal matching.
@@ -38,7 +38,7 @@ the operation), so there is no reliance on byte-for-byte string-literal matching
 ## Fragments: Relay's model, $mol's style
 
 This reproduces the [Relay fragment rendering model](https://relay.dev/docs/guided-tour/rendering/fragments/)
-— minus React, minus the normalized store:
+without React and without its normalized store:
 
 - **A component declares its data needs as a named fragment** in its own `.graphql` file:
 
@@ -57,7 +57,7 @@ This reproduces the [Relay fragment rendering model](https://relay.dev/docs/guid
   tree: any operation (or another fragment) can spread `...DemoNoteCard_note`. The
   `${Component}_${prop}` naming convention exists only to guarantee global uniqueness
   (the codegen rejects duplicates). At codegen time the fragment definitions are merged
-  (transitively) into every operation that spreads them — one network request, no
+  (transitively) into every operation that spreads them, producing one network request with no
   runtime document registry:
 
   ```graphql
@@ -72,7 +72,7 @@ This reproduces the [Relay fragment rendering model](https://relay.dev/docs/guid
 
 - **Masking.** The parent physically receives the fragment's data, but its TYPE hides
   it. `$demo_app_notes().notes[0]` is typed as
-  `{ id: string } & { ' $fragmentRefs'?: { DemoNoteCard_noteFragment } }` — reading
+  `{ id: string } & { ' $fragmentRefs'?: { DemoNoteCard_noteFragment } }`. Reading
   `.title` in the parent is a compile error:
 
   ```
@@ -81,7 +81,7 @@ This reproduces the [Relay fragment rendering model](https://relay.dev/docs/guid
   ```
 
 - **Unmask accessor instead of `useFragment`.** Relay's `useFragment` is really an
-  identity cast, not a hook — so in $mol it is a plain generated function used inside
+  identity cast, not a hook, so in $mol it is a plain generated function used inside
   a reactive `$mol_mem` property:
 
   ```ts
@@ -102,13 +102,23 @@ This reproduces the [Relay fragment rendering model](https://relay.dev/docs/guid
   }
   ```
 
-**Deliberately dropped: Relay's normalized store / cache consistency.** Every query
-just fetches; invalidation is a single reactive marker (`demo/graphql/index.ts`):
-queries subscribe to a generation counter, every mutation bumps it, all `$mol_mem`-oized
-queries refetch. You get Relay's composition/masking ergonomics WITHOUT the cache
-machinery. The request layer and the unmask path are small and swappable on purpose —
-smarter per-fragment reactivity via `$mol_mem` is a possible future experiment, and
-nothing here paints it into a corner.
+### Convention: a mutation refetches every query on the page
+
+No normalized store, no cache-consistency machinery. Invalidation is one reactive marker
+(`demo/graphql/index.ts`): every query subscribes to a generation counter, every mutation
+bumps it, so all `$mol_mem`-oized queries on the current page re-run. That is the whole
+cache story, and you keep Relay's composition and masking ergonomics without it.
+
+Yes, this fires some duplicate and overlapping requests. That is the deliberate trade: a
+redundant fetch is cheaper than a UX bug from a forgotten invalidation callback, which is
+the classic normalized-cache footgun. Don't fear the duplicates by default. Optimize only
+when a real cost shows up.
+
+When you do: pass `{ revalidate: false }` to `$demo_graphql_request` to opt one query out
+of refetching, or one mutation out of triggering a refetch. On the backend, persisted
+queries make the repeated reads cheap. The request layer and the unmask path stay small
+and swappable, so smarter per-fragment reactivity via `$mol_mem` can land later without
+touching generated code.
 
 ## Project layout
 
@@ -121,7 +131,7 @@ codegen/
   preset.js             custom preset: one output per .graphql file + shared schema types
   molplugin.js          emits the typed wrappers / fragment unmask helpers in namespace $
 server/
-  schema.graphql        the SDL — single source of truth for server AND codegen
+  schema.graphql        the SDL: single source of truth for server AND codegen
   index.mjs             graphql-yoga mock server with in-memory data
 demo/
   graphql/index.ts      runtime: $demo_graphql_request, error type, reactive marker, ref type
@@ -137,7 +147,7 @@ demo/
 | `docker-compose up --build` | mock GraphQL API on :4000 + built app on :8080 |
 | `npm install && npm run codegen` | regenerate all `*.graphql.ts` |
 | `npm run codegen:watch` | regenerate on every .graphql/schema change |
-| `npm start` | mam dev server on :9080 (`/demo/app/`) — run `npm run server` alongside |
+| `npm start` | mam dev server on :9080 (`/demo/app/`); run `npm run server` alongside |
 | `npm run build` | one-shot production build into `demo/app/-/` (type-checks the bundle) |
 | `npm run server` | run the mock GraphQL server locally |
 
@@ -149,7 +159,7 @@ terminals. The mam builder picks up regenerated `.graphql.ts` like any source ch
 1. Take `codegen/` as-is; point `schema` at your SDL file and `documents` at your UI
    tree; set `molRuntime` to your prefix (e.g. `$myapp_graphql`).
 2. Port `demo/graphql/index.ts` under your prefix (request fn, error, ref type,
-   invalidation marker) — or swap the body of `*_request` for your transport.
+   invalidation marker), or swap the body of `*_request` for your transport.
 3. Write `.graphql` files next to your components: **one operation or fragment per
    file**; file path defines the generated symbol (`a/b/c.graphql` → `$a_b_c`);
    fragment names follow `${Component}_${prop}` and must be globally unique.
@@ -167,17 +177,17 @@ terminals. The mam builder picks up regenerated `.graphql.ts` like any source ch
   every `$` in emitted GraphQL strings and stock-plugin type output as `\u0024`
   (identical to TS/JS at both type and runtime level). If you hand-write such tokens in
   a module `.ts`, escape them the same way (see `demo/graphql/index.ts`).
-  Prior art avoided this by hand — adding empty stub directories named after the phantom
+  Prior art avoided this by hand: adding empty stub directories named after the phantom
   tokens (`fragment/`, `id/`, …) so the scanner resolves them to nothing. Escaping every
   `$` is the canonical fix: no stub dirs, and it survives new field/variable names
   automatically.
 - **`mam.ts`/`mam.jam.js` must exist at the workspace root** (they declare `class $`);
   without them every `$`-as-type use in mol fails to compile.
 - The generated wrapper for an operation that spreads fragments carries a
-  `/** Spreads fragments: $demo_note_card_note */` doc-comment — that is a real
+  `/** Spreads fragments: $demo_note_card_note */` doc-comment; that is a real
   dependency edge for the builder (fragments are independent of the view hierarchy,
   so nothing else would link the fragment's module into the bundle).
-- The app calls `http://localhost:4000/graphql` (see `$demo_graphql_endpoint` — 
+- The app calls `http://localhost:4000/graphql` (see `$demo_graphql_endpoint`, 
   override it for other setups). CORS is open on the mock server.
 
 ## What's mocked / simplified
@@ -187,5 +197,5 @@ terminals. The mam builder picks up regenerated `.graphql.ts` like any source ch
 - No subscriptions, no persisted queries, no normalized cache (see above).
 - `type-check evidence`: the mam build itself type-checks the exact bundle program
   (its audit fails the build on any TS error). A whole-workspace `tsc -p .` also
-  drags in mol's unbuilt demo modules — expect noise there; the bundle audit is the
+  drags in mol's unbuilt demo modules, so expect noise there; the bundle audit is the
   real gate.

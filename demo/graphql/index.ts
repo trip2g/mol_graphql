@@ -34,15 +34,27 @@ namespace $ {
 
 	/**
 	 * Request layer used by all generated `*.graphql.ts` wrappers.
+	 *
+	 * CONVENTION: every mutation refetches every query on the current page.
+	 * A query subscribes to the marker; a mutation bumps it; all $mol_mem-oized
+	 * queries re-run. This trades some duplicate requests for the guarantee that
+	 * the UI is never stale because someone forgot a cache-invalidation callback.
+	 * Don't fear the duplicates by default; optimize only when a real cost shows up.
+	 *
+	 * Escape hatch: pass `{ revalidate: false }`. On a mutation it skips the bump
+	 * (this write shouldn't refresh the page); on a query it skips the subscribe
+	 * (this read is static and shouldn't refetch when others mutate).
+	 *
 	 * Kept small and swappable on purpose: smarter per-fragment reactivity can
 	 * later live here (or in unmask) without touching generated code.
 	 */
-	export function $demo_graphql_request(query: string, variables?: object): unknown {
+	export function $demo_graphql_request(query: string, variables?: object, opts?: { revalidate?: boolean }): unknown {
 
 		const mutation = /^\s*mutation\b/.test(query)
+		const revalidate = opts?.revalidate !== false
 
 		// queries subscribe to the invalidation marker before fetching
-		if (!mutation) generation.value()
+		if (!mutation && revalidate) generation.value()
 
 		const res = $mol_fetch.json($demo_graphql_endpoint(), {
 			method: 'POST',
@@ -52,7 +64,7 @@ namespace $ {
 
 		if (res.errors) throw new $demo_graphql_error('GraphQL Error', res.errors)
 
-		if (mutation) generation.value(generation.value() + 1)
+		if (mutation && revalidate) generation.value(generation.value() + 1)
 
 		return res.data
 	}
