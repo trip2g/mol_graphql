@@ -637,15 +637,9 @@ real graphql-js executor over the SDL ([`pages/mock.mjs`](pages/mock.mjs)). Dele
   always. (The builder resolves dependency FQNs by exact path segments; that is also why
   the mount point `demo` and not e.g. `mol_graphql`: no underscores in path segments.)
 - **The $mol dep scanner reads `$`-tokens everywhere**, including string literals and
-  doc-comments. GraphQL variables (`$id`) and fragment-masking keys (`' $fragmentRefs'`)
-  would become phantom module deps and fail the build. The codegen therefore escapes
-  every `$` in emitted GraphQL strings and stock-plugin type output as `\u0024`
-  (identical to TS/JS at both type and runtime level). If you hand-write such tokens in
-  a module `.ts`, escape them the same way (see `graphql/index.ts`).
-  Prior art avoided this by hand: adding empty stub directories named after the phantom
-  tokens (`fragment/`, `id/`, ...) so the scanner resolves them to nothing. Escaping every
-  `$` is the canonical fix: no stub dirs, and it survives new field/variable names
-  automatically.
+  doc-comments; emitted non-module `$` is escaped as `\u0024`. Full story - the escape,
+  why the server never sees it, and the comment-token trap - in
+  [The `$` dependency scanner](#the--dependency-scanner) below.
 - **`mam.ts`/`mam.jam.js` must exist at the workspace root** (they declare `class $`);
   without them every `$`-as-type use in mol fails to compile. In the canonical layout
   they come from the central [hyoo-ru/mam](https://github.com/hyoo-ru/mam) workspace.
@@ -656,6 +650,61 @@ real graphql-js executor over the SDL ([`pages/mock.mjs`](pages/mock.mjs)). Dele
   so nothing else would link the fragment's module into the bundle).
 - The app calls `http://localhost:4000/graphql` (see `$demo_graphql_endpoint`, 
   override it for other setups). CORS is open on the mock server.
+
+## The `$` dependency scanner
+
+The $mol builder does not parse code to find a module's dependencies. It scans the
+source TEXT for `$`-prefixed names and resolves each one to a file - everywhere,
+including string literals and doc-comments. This repo leans on that deliberately:
+the generated `/** Spreads fragments: $demo_note_card_note */` doc-comment is a real
+dependency edge that links the fragment's module into the bundle. The flip side is
+that every stray `$`-token in source text is a build input, intended or not.
+
+### Escape emitted `$` that is not a module, as `\u0024`
+
+GraphQL query variables (`$id`) and fragment-masking keys (`' $fragmentRefs'`,
+`' $fragmentName'`) carry a `$` that is not a $mol module. If the scanner sees them,
+it resolves phantom modules and the build fails. So the codegen writes every such `$`
+as `\u0024`: [`escapeDollars`](codegen/molplugin.js#L101-L103) for type output,
+`escapeTemplate` for the embedded query strings, both in
+[`codegen/molplugin.js`](codegen/molplugin.js). Real module references the codegen
+DOES want as dependencies (`$demo_note_card_note`) stay unescaped on purpose. If you
+hand-write such non-module tokens in a module `.ts`, escape them the same way (this
+repo's [`graphql/index.ts`](graphql/index.ts) does, for the masking keys).
+
+Prior art avoided the phantom modules by hand: empty stub directories named after
+the phantom tokens (`fragment/`, `id/`, ...) so the scanner resolves them to nothing.
+Escaping is the canonical fix: no stub dirs, and it survives new field and variable
+names automatically.
+
+### `\u0024` is safe - and the server never sees it
+
+`\u0024` is a compile-time unicode escape. TS and JS decode it to U+0024 = `$` when the
+string literal is parsed, so the generated types and the RUNTIME query strings are
+identical in meaning to writing `$`. The escape exists only in the raw source text
+(six ASCII characters, no `$` byte) to hide the token from the textual scanner. At
+runtime the query string carries a real `$`, so the network payload and the GraphQL
+server receive normal GraphQL. Concretely: the Like mutation is sent as
+`mutation demo_note_card_like($id: ID!)` - a real `$` in the POST body - and the
+server answers normally. The server never sees `\u0024`.
+
+### The comment-token trap (a real bug this repo hit)
+
+The same rule bites hand-written modules. A comment in
+[`graphql/index.ts`](graphql/index.ts) once named the static mock entry by its
+symbol (`$demo_static`). Because `graphql/index.ts` is a real dependency of the app,
+that one comment token pulled the whole in-browser mock into the production app
+bundle: the app rendered mock data and never called the server. The fix is NOT to
+escape here - a comment is prose, not code that needs the character - but to DROP
+the `$`: the comment now says "the static entry (static/static.ts)" instead of the
+live symbol. If a comment names a module you do not want linked, do not write it as
+a live `$`-token.
+
+### The rule
+
+The scanner treats every `$`-token in source text as a dependency. Two tools:
+escape (`\u0024`) tokens that must keep the character but are not modules; name modules
+you do not want linked without the `$` (in words, by file path).
 
 ## Testing query/mutation components
 
