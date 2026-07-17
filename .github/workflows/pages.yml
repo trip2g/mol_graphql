@@ -1,11 +1,12 @@
-# Static demo on GitHub Pages: GraphQL runs IN THE BROWSER (pages/mock.mjs),
-# no server needed. Builds the mam bundle + the in-browser mock, publishes
-# pages/dist/ to the project Pages site (…github.io/mol_graphql/).
-name: Deploy demo to GitHub Pages
+# FALLBACK deploy (manual): the pre-canonical path — mam build of demo/app
+# plus the esbuild-bundled in-browser GraphQL executor (pages/build.mjs,
+# graphql-js graphqlSync over the real SDL). The canonical deploy is
+# .github/workflows/deploy.yml (hyoo-ru/mam_build + the $demo_app_static
+# module). Keep this until the canonical path is proven live, then delete it
+# together with pages/.
+name: Deploy demo to GitHub Pages (fallback, esbuild mock)
 
 on:
-  push:
-    branches: [master]
   workflow_dispatch:
 
 permissions:
@@ -27,18 +28,22 @@ jobs:
         with:
           node-version: 24
 
-      - run: npm ci
-
-      # pre-fetch the $mol module namespaces (same as Dockerfile.app; the mam
-      # builder would otherwise clone them on first build — see .meta.tree)
-      - name: Fetch $mol module namespaces
+      # this repo is a mam PACKAGE now (no vendored bootstrap): assemble a
+      # workspace out of tree, mount the checkout as its demo/ package
+      - name: Set up mam workspace
         run: |
-          git clone --depth 1 https://github.com/hyoo-ru/mam_mol.git mol
-          git clone --depth 1 https://github.com/hyoo-ru/mam_node.git node
+          git clone --depth 1 https://github.com/hyoo-ru/mam.git "$RUNNER_TEMP/mam"
+          git clone --depth 1 https://github.com/hyoo-ru/mam_mol.git "$RUNNER_TEMP/mam/mol"
+          git clone --depth 1 https://github.com/hyoo-ru/mam_node.git "$RUNNER_TEMP/mam/node"
+          ln -s "$GITHUB_WORKSPACE" "$RUNNER_TEMP/mam/demo"
+          cd "$RUNNER_TEMP/mam" && npm install
+
+      - run: npm ci
 
       - run: npm run codegen
 
-      - run: npm run build
+      - name: Build demo/app
+        run: cd "$RUNNER_TEMP/mam" && npx mam demo/app
         env:
           MAM_PULL_DISABLED: '1'
 
