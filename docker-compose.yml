@@ -1,0 +1,15 @@
+services:
+
+  graphql:
+    build: ./server
+    ports:
+      - "4000:4000" # the app in your browser calls http://localhost:4000/graphql
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    ports:
+      - "8080:80" # open http://localhost:8080/
+    depends_on:
+      - graphql

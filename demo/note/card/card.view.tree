@@ -1,0 +1,14 @@
+$demo_note_card $mol_view
+	note_ref null
+	sub /
+		<= Title $mol_paragraph
+			title <= note_title \
+		<= Body $mol_paragraph
+			title <= note_body \
+		<= Foot $mol_row
+			sub /
+				<= Author $mol_paragraph
+					title <= author_name \
+				<= Like $mol_button_minor
+					title <= like_title \
+					click? <=> like? null

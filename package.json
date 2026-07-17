@@ -1,0 +1,28 @@
+{
+	"name": "trip2g_mol_graphql",
+	"description": "Demo: $mol + GraphQL codegen with Relay-style fragments",
+	"private": true,
+	"scripts": {
+		"start": "mam",
+		"build": "mam demo/app",
+		"codegen": "graphql-codegen --config codegen/graphqlgen.js",
+		"codegen:watch": "graphql-codegen --config codegen/graphqlgen.js --watch",
+		"server": "node server/index.mjs"
+	},
+	"engines": {
+		"node": ">=24.0.0"
+	},
+	"dependencies": {
+		"lru-cache": "11.2.7",
+		"mam": "*",
+		"typescript": "^5.9.3"
+	},
+	"devDependencies": {
+		"@graphql-codegen/add": "^5.0.3",
+		"@graphql-codegen/cli": "^5.0.7",
+		"@graphql-codegen/typescript": "^4.1.6",
+		"@graphql-codegen/typescript-operations": "^4.6.1",
+		"@parcel/watcher": "^2.5.1",
+		"graphql": "^16.11.0"
+	}
+}

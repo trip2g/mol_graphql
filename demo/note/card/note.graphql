@@ -1,0 +1,9 @@
+fragment DemoNoteCard_note on Note {
+	id
+	title
+	body
+	likes
+	author {
+		name
+	}
+}

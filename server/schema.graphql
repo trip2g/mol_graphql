@@ -1,0 +1,21 @@
+type Query {
+	viewer: User!
+	notes: [Note!]!
+}
+
+type Mutation {
+	note_like(id: ID!): Note!
+}
+
+type Note {
+	id: ID!
+	title: String!
+	body: String!
+	likes: Int!
+	author: User!
+}
+
+type User {
+	id: ID!
+	name: String!
+}

@@ -1,0 +1,187 @@
+# $mol + GraphQL codegen: Relay's fragment way, without React
+
+A copy-paste-able starter showing how to wire **$mol** components to a GraphQL API with
+**full end-to-end typing** and **Relay-style fragments** — declared per component,
+spread by name, masked for everyone else — with zero imports and no changes to the
+$mol/mam builder.
+
+```sh
+docker-compose up --build
+# open http://localhost:8080  (mock GraphQL API is on http://localhost:4000/graphql)
+```
+
+You get a page that greets the viewer (plain typed query), lists notes (parent query
+composing a child's fragment), and lets you like a note (typed mutation + reactive
+refetch). Everything is typed from the schema down to the component code.
+
+## The idea in one paragraph
+
+Each component module co-locates its GraphQL operations as separate `.graphql` files.
+A watch codegen (`graphql-codegen` + ~150 lines of custom preset/plugin) generates a
+`<name>.graphql.ts` next to each — a thin, fully-typed wrapper in the global
+`namespace $`. The $mol builder (`mam`) then compiles those generated files as ordinary
+module TypeScript. **Two builders meet through a file seam**: graphql-codegen writes
+`.graphql.ts`, mam compiles it — exactly like `.view.tree` → `-view.tree/*.d.ts` works
+in $mol itself. The generated symbol `$<module>_<opname>` appears in `namespace $`
+with zero imports.
+
+```
+demo/app/notes.graphql          →  demo/app/notes.graphql.ts          $demo_app_notes(): DemoAppNotesQuery
+demo/app/viewer.graphql         →  demo/app/viewer.graphql.ts         $demo_app_viewer(): DemoAppViewerQuery
+demo/note/card/note.graphql     →  demo/note/card/note.graphql.ts     $demo_note_card_note + $demo_note_card_note_unmask(ref)
+demo/note/card/like.graphql     →  demo/note/card/like.graphql.ts     $demo_note_card_like(vars): DemoNoteCardLikeMutation
+```
+
+The result/variables types are **baked in by the generator** (it knows the schema and
+the operation), so there is no reliance on byte-for-byte string-literal matching.
+
+## Fragments: Relay's model, $mol's style
+
+This reproduces the [Relay fragment rendering model](https://relay.dev/docs/guided-tour/rendering/fragments/)
+— minus React, minus the normalized store:
+
+- **A component declares its data needs as a named fragment** in its own `.graphql` file:
+
+  ```graphql
+  # demo/note/card/note.graphql
+  fragment DemoNoteCard_note on Note {
+    id
+    title
+    body
+    likes
+    author { name }
+  }
+  ```
+
+- **Fragments are global, spread by unique name.** They do not care about the component
+  tree: any operation (or another fragment) can spread `...DemoNoteCard_note`. The
+  `${Component}_${prop}` naming convention exists only to guarantee global uniqueness
+  (the codegen rejects duplicates). At codegen time the fragment definitions are merged
+  (transitively) into every operation that spreads them — one network request, no
+  runtime document registry:
+
+  ```graphql
+  # demo/app/notes.graphql
+  query DemoAppNotes {
+    notes {
+      id
+      ...DemoNoteCard_note
+    }
+  }
+  ```
+
+- **Masking.** The parent physically receives the fragment's data, but its TYPE hides
+  it. `$demo_app_notes().notes[0]` is typed as
+  `{ id: string } & { ' $fragmentRefs'?: { DemoNoteCard_noteFragment } }` — reading
+  `.title` in the parent is a compile error:
+
+  ```
+  error TS2339: Property 'title' does not exist on type
+  '{ __typename?: "Note"; id: string; } & { ' $fragmentRefs'?: ... }'
+  ```
+
+- **Unmask accessor instead of `useFragment`.** Relay's `useFragment` is really an
+  identity cast, not a hook — so in $mol it is a plain generated function used inside
+  a reactive `$mol_mem` property:
+
+  ```ts
+  // demo/note/card/card.view.ts
+  export class $demo_note_card extends $.$demo_note_card {
+
+      // opaque ref bound by the parent in view.tree: `note_ref <= card_ref*`
+      note_ref(): $demo_graphql_ref<$demo_note_card_note> {
+          return super.note_ref()
+      }
+
+      @ $mol_mem
+      note() {
+          return $demo_note_card_note_unmask(this.note_ref()) // typed fields, only here
+      }
+
+      note_title() { return this.note().title }
+  }
+  ```
+
+**Deliberately dropped: Relay's normalized store / cache consistency.** Every query
+just fetches; invalidation is a single reactive marker (`demo/graphql/index.ts`):
+queries subscribe to a generation counter, every mutation bumps it, all `$mol_mem`-oized
+queries refetch. You get Relay's composition/masking ergonomics WITHOUT the cache
+machinery. The request layer and the unmask path are small and swappable on purpose —
+smarter per-fragment reactivity via `$mol_mem` is a possible future experiment, and
+nothing here paints it into a corner.
+
+## Project layout
+
+```
+.meta.tree              namespace -> git repo mapping for the mam builder (mol, node)
+mam.ts / mam.jam.js     $mol workspace bootstrap (declares `class $`; from hyoo-ru/mam)
+tsconfig.json           workspace tsconfig (the mam type-checker reads compilerOptions from it)
+codegen/
+  graphqlgen.js         graphql-codegen config (schema = checked-in SDL, no live introspection)
+  preset.js             custom preset: one output per .graphql file + shared schema types
+  molplugin.js          emits the typed wrappers / fragment unmask helpers in namespace $
+server/
+  schema.graphql        the SDL — single source of truth for server AND codegen
+  index.mjs             graphql-yoga mock server with in-memory data
+demo/
+  graphql/index.ts      runtime: $demo_graphql_request, error type, reactive marker, ref type
+  graphql/schema.graphql.ts   (generated) shared scalar/enum/input types
+  app/                  $demo_app: page, plain query + fragment-composing query
+  note/card/            $demo_note_card: fragment + unmask + typed mutation
+```
+
+## Commands
+
+| command | what |
+|---|---|
+| `docker-compose up --build` | mock GraphQL API on :4000 + built app on :8080 |
+| `npm install && npm run codegen` | regenerate all `*.graphql.ts` |
+| `npm run codegen:watch` | regenerate on every .graphql/schema change |
+| `npm start` | mam dev server on :9080 (`/demo/app/`) — run `npm run server` alongside |
+| `npm run build` | one-shot production build into `demo/app/-/` (type-checks the bundle) |
+| `npm run server` | run the mock GraphQL server locally |
+
+The dev loop is `npm run codegen:watch` + `npm start` + `npm run server` in three
+terminals. The mam builder picks up regenerated `.graphql.ts` like any source change.
+
+## How to copy this into your project
+
+1. Take `codegen/` as-is; point `schema` at your SDL file and `documents` at your UI
+   tree; set `molRuntime` to your prefix (e.g. `$myapp_graphql`).
+2. Port `demo/graphql/index.ts` under your prefix (request fn, error, ref type,
+   invalidation marker) — or swap the body of `*_request` for your transport.
+3. Write `.graphql` files next to your components: **one operation or fragment per
+   file**; file path defines the generated symbol (`a/b/c.graphql` → `$a_b_c`);
+   fragment names follow `${Component}_${prop}` and must be globally unique.
+4. `npm run codegen:watch` next to your mam dev server. Generated `*.graphql.ts` can be
+   committed (this repo does) so the app builds without running codegen first.
+
+### Gotchas (learned the hard way)
+
+- **$mol module paths are literal**: `$demo_note_card` must live at `demo/note/card/`.
+  Underscore = directory separator, always. (The builder resolves dependency FQNs by
+  exact path segments.)
+- **The $mol dep scanner reads `$`-tokens everywhere**, including string literals and
+  doc-comments. GraphQL variables (`$id`) and fragment-masking keys (`' $fragmentRefs'`)
+  would become phantom module deps and fail the build. The codegen therefore escapes
+  every `$` in emitted GraphQL strings and stock-plugin type output as `\u0024`
+  (identical to TS/JS at both type and runtime level). If you hand-write such tokens in
+  a module `.ts`, escape them the same way (see `demo/graphql/index.ts`).
+- **`mam.ts`/`mam.jam.js` must exist at the workspace root** (they declare `class $`);
+  without them every `$`-as-type use in mol fails to compile.
+- The generated wrapper for an operation that spreads fragments carries a
+  `/** Spreads fragments: $demo_note_card_note */` doc-comment — that is a real
+  dependency edge for the builder (fragments are independent of the view hierarchy,
+  so nothing else would link the fragment's module into the bundle).
+- The app calls `http://localhost:4000/graphql` (see `$demo_graphql_endpoint` — 
+  override it for other setups). CORS is open on the mock server.
+
+## What's mocked / simplified
+
+- The GraphQL server is graphql-yoga with fixed in-memory data (likes actually
+  increment server-side).
+- No subscriptions, no persisted queries, no normalized cache (see above).
+- `type-check evidence`: the mam build itself type-checks the exact bundle program
+  (its audit fails the build on any TS error). A whole-workspace `tsc -p .` also
+  drags in mol's unbuilt demo modules — expect noise there; the bundle audit is the
+  real gate.

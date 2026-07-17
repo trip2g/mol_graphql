@@ -1,0 +1,9 @@
+$demo_app $mol_page
+	title \$mol × GraphQL fragments
+	body /
+		<= Greeting $mol_paragraph
+			title <= greeting \
+		<= Note_list $mol_list
+			rows <= note_rows /
+	Note_card* $demo_note_card
+		note_ref <= card_ref* null
