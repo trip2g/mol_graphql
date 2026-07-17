@@ -504,6 +504,68 @@ Codegen объединяет объявленные типы с `writes` и вы
 на мок-транспорте и проверяет выборочный перезапрос, случай пустого списка,
 `@touches` и деградацию без метаданных.
 
+## Подписки через SSE
+
+Запросы и мутации идут через codegen; подписки - НЕТ. Codegen нарочно падает на
+документе-подписке ([`codegen/molplugin.js`](codegen/molplugin.js)) - то же
+разделение, что и в trip2g: запрос - это один запрос с одним ответом через
+синхронный fiber-транспорт, а подписка - долгоживущий поток, толкающий много
+значений. Протаскивать поток через шов запросов значит дать ему неверную форму,
+поэтому у подписок свой маленький рукописный raw-рантайм
+([`graphql/subscription/subscription.ts`](graphql/subscription/subscription.ts)).
+
+Документ подписки - обычная строка рядом с компонентом, который её потребляет
+([`note/live/live.view.ts`](note/live/live.view.ts)), без `.graphql`-обёртки:
+
+```ts
+const NOTE_LIKED_QUERY = `
+	subscription demo_note_live {
+		note_liked { id title likes }
+	}
+`
+
+@ $mol_mem
+subscription() {
+	return $demo_graphql_subscription(NOTE_LIKED_QUERY)
+}
+```
+
+`$demo_graphql_subscription(query, variables)` возвращает общий реактивный хост
+на документ: `.data()` - это `$mol_mem` с последним событием, `.error()` -
+последняя ошибка, `.opened()` - состояние соединения. Чтение `.data()`
+поднимает поток; при обрыве хост переподключается с задержкой, а когда данные
+больше никто на странице не рендерит - обрывает соединение сам.
+
+Транспорт - SSE: шов подключения по умолчанию POST-ит документ на GraphQL
+endpoint с `Accept: text/event-stream` (протокол graphql-sse "distinct
+connections") и разбирает кадры `event: next`. Серверная сторона - обычный
+async-итератор в [`server/mock.mjs`](server/mock.mjs): мутация лайка
+рассылает изменённую заметку во все живые потоки `note_liked`, а graphql-yoga
+превращает итератор в SSE нативно, так что `curl -N` к endpoint показывает
+сырые события.
+
+Потребитель - идиома watcher из trip2g: живая панель привязывает свойство
+`watcher` в теле view.tree, поэтому рендер подписывается на него и каждое
+SSE-событие перезапускает `$mol_mem`. Побочный эффект watcher выносит из
+вычисления через `setTimeout`: он вызывает `$demo_graphql_revalidate()` -
+ручной сдвиг универсальных маркеров инвалидации
+([`graphql/index.ts`](graphql/index.ts)), и все запросы страницы
+перезапрашиваются. Лайк из ДРУГОЙ вкладки браузера поэтому вживую обновляет
+карточки заметок: событие подписки запускает то же соглашение о ревалидации,
+что и локальная мутация.
+
+Шов подключения подменяем ровно так же, как транспорт запросов: у Pages-сборки
+нет сервера, поэтому браузерный мок ([`graphql/mock/mock.ts`](graphql/mock/mock.ts))
+подменяет `$demo_graphql_subscription_connect` на локальный эмиттер. Мок-мутация
+лайка рассылает изменённую заметку во все открытые "потоки" через макрозадачу,
+как пришёл бы настоящий сетевой push, так что живая панель работает с нулём
+сети и на GitHub Pages.
+
+Тесты ([`note/live/live.view.test.ts`](note/live/live.view.test.ts)) подменяют
+шов подключения заглушкой, которая захватывает приёмник событий, и толкают
+события руками: та же дисциплина «глобальная подмена + восстановление», что и у
+мока транспорта.
+
 ## Куда смотреть (маршрут чтения)
 
 По порядку, от файла `.graphql` до работающего компонента:
@@ -549,11 +611,13 @@ server/
   schema.graphql        the SDL: single source of truth for server AND codegen
   index.mjs             graphql-yoga mock server with in-memory data
 graphql/index.ts        runtime: request fn, error, reactive marker, ref type
+graphql/subscription/   raw SSE subscription runtime: reactive host + connect seam
 graphql/mock/           $demo_graphql_mock: in-browser mock; linking it swaps the transport
 graphql/schema.graphql.ts   (generated) shared scalar/enum/input types
 app/                    $demo_app: page, plain query + fragment-composing query
 pages/                  $demo_pages: thin Pages entry, links the app + the mock
 note/card/              $demo_note_card: fragment + unmask + typed mutation
+note/live/              $demo_note_live: live panel over the note_liked subscription
 package.json            DEV TOOL only: codegen + mock server (not part of the build)
 ```
 
@@ -755,7 +819,8 @@ with_transport(transport, () => {
 
 - GraphQL-сервер - graphql-yoga с фиксированными данными в памяти (лайки реально
   увеличиваются на стороне сервера).
-- Ни подписок, ни persisted queries, ни нормализованного кэша (см. выше).
+- Ни persisted queries, ни нормализованного кэша (см. выше). Подписки есть, но
+  только как raw SSE-рантайм: codegen на них по-прежнему падает.
 - `type-check evidence`: сама сборка mam проверяет типы ровно той программы, что
   попадает в бандл (её аудит валит сборку на любой ошибке TS). `tsc -p .` по всему
   воркспейсу затягивает ещё и несобранные демо-модули mol и шумит; настоящие

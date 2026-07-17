@@ -493,6 +493,69 @@ The other two modes are proven by tests:
 mock transport and asserts the selective refetch, the empty-list case, `@touches`, and
 the no-metadata degradation.
 
+## Subscriptions over SSE
+
+Queries and mutations go through the codegen; subscriptions do NOT. The codegen
+throws on a subscription document on purpose
+([`codegen/molplugin.js`](codegen/molplugin.js)), the same split trip2g uses: a
+query is one request returning one value through the sync fiber transport, while
+a subscription is a long-lived stream pushing many values. Forcing a stream
+through the request seam would give it the wrong shape, so subscriptions get a
+small hand-written raw runtime instead
+([`graphql/subscription/subscription.ts`](graphql/subscription/subscription.ts)).
+
+The subscription document is a plain string next to the component that consumes
+it ([`note/live/live.view.ts`](note/live/live.view.ts)), no `.graphql` wrapper:
+
+```ts
+const NOTE_LIKED_QUERY = `
+	subscription demo_note_live {
+		note_liked { id title likes }
+	}
+`
+
+@ $mol_mem
+subscription() {
+	return $demo_graphql_subscription(NOTE_LIKED_QUERY)
+}
+```
+
+`$demo_graphql_subscription(query, variables)` returns a shared reactive host
+per document: `.data()` is a `$mol_mem` holding the latest event payload,
+`.error()` the latest failure, `.opened()` the connection state. Reading
+`.data()` spins the stream up; the host reconnects after a delay when the stream
+drops, and aborts the connection when nothing on the page renders the data
+anymore.
+
+The transport is SSE: the default connect seam POSTs the document to the GraphQL
+endpoint with `Accept: text/event-stream` (the graphql-sse "distinct
+connections" protocol) and parses `event: next` frames. The server side is a
+plain async iterator in [`server/mock.mjs`](server/mock.mjs): the like mutation
+broadcasts the changed note to every live `note_liked` stream, and graphql-yoga
+turns the iterator into SSE natively, so `curl -N` against the endpoint shows
+the raw events.
+
+The consumer is the watcher idiom from trip2g: the live panel binds a `watcher`
+property in its view.tree body, so rendering subscribes it and every SSE event
+re-runs the `$mol_mem`. The watcher defers its side effect out of the
+computation with `setTimeout`: it calls `$demo_graphql_revalidate()`, a manual
+bump of the universal invalidation markers
+([`graphql/index.ts`](graphql/index.ts)), so every page query refetches. A like
+made in ANOTHER browser tab therefore updates the note cards live: the
+subscription event drives the same revalidation convention as a local mutation.
+
+The connect seam is swappable exactly like the request transport: the Pages
+build has no server, so the in-browser mock
+([`graphql/mock/mock.ts`](graphql/mock/mock.ts)) swaps
+`$demo_graphql_subscription_connect` for a local emitter. The mock like mutation
+broadcasts the changed note to every open "stream" on a macrotask, like a real
+network push would arrive, so the live panel works with zero network on GitHub
+Pages too.
+
+Tests ([`note/live/live.view.test.ts`](note/live/live.view.test.ts)) swap the
+connect seam for a stub that captures the events sink, then push subscription
+events by hand: the same global-swap-restore discipline as the transport mock.
+
 ## Where to look (reading path)
 
 In order, from a `.graphql` file to a running component:
@@ -537,11 +600,13 @@ server/
   schema.graphql        the SDL: single source of truth for server AND codegen
   index.mjs             graphql-yoga mock server with in-memory data
 graphql/index.ts        runtime: request fn, error, reactive marker, ref type
+graphql/subscription/   raw SSE subscription runtime: reactive host + connect seam
 graphql/mock/           $demo_graphql_mock: in-browser mock; linking it swaps the transport
 graphql/schema.graphql.ts   (generated) shared scalar/enum/input types
 app/                    $demo_app: page, plain query + fragment-composing query
 pages/                  $demo_pages: thin Pages entry, links the app + the mock
 note/card/              $demo_note_card: fragment + unmask + typed mutation
+note/live/              $demo_note_live: live panel over the note_liked subscription
 package.json            DEV TOOL only: codegen + mock server (not part of the build)
 ```
 
@@ -726,7 +791,8 @@ Worth knowing:
 
 - The GraphQL server is graphql-yoga with fixed in-memory data (likes actually
   increment server-side).
-- No subscriptions, no persisted queries, no normalized cache (see above).
+- No persisted queries, no normalized cache (see above). Subscriptions exist,
+  but only as the raw SSE runtime: the codegen keeps throwing on them.
 - `type-check evidence`: the mam build itself type-checks the exact bundle program
   (its audit fails the build on any TS error). A whole-workspace `tsc -p .` also
   drags in mol's unbuilt demo modules and is noisy; the bundle audit is the real gate.
