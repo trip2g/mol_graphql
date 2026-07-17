@@ -43,6 +43,17 @@ namespace $ {
 		},
 	]
 
+	// Local analog of the server's subscription broadcast, for the zero-network
+	// Pages build: the like mutation pushes the changed note to every open
+	// note_liked "stream". Deferred by a macrotask, like a real network push,
+	// so the emit never runs inside the mutation's own fiber.
+	const note_liked_listeners = new Set<(data: unknown) => void>()
+
+	const note_liked_emit = (note: typeof notes[number]) => {
+		const data = { note_liked: note_data(note) }
+		for (const next of [...note_liked_listeners]) next(data)
+	}
+
 	const note_data = (note: typeof notes[number]) => ({
 		id: note.id,
 		title: note.title,
@@ -74,6 +85,7 @@ namespace $ {
 				const note = notes.find(note => note.id === id)
 				if (!note) return { errors: [{ message: `Note ${id} not found` }] }
 				note.likes += 1
+				setTimeout(() => note_liked_emit(note), 0)
 				return { data: { note_like: { id: note.id, likes: note.likes } } }
 			}
 
@@ -86,5 +98,28 @@ namespace $ {
 
 	// the swap: importing this module replaces the server transport with the mock
 	$demo_graphql_transport = $demo_graphql_mock
+
+	// the same swap for the subscription stream: instead of an SSE connection,
+	// events come from the local emitter above. The first await defers the
+	// listener registration out of the fiber that pulled the stream up; the
+	// "connection" then stays open until the host aborts it.
+	$demo_graphql_subscription_connect = async (query, variables, events, signal) => {
+		await Promise.resolve()
+		if (signal.aborted) return
+
+		if (!/\bnote_liked\b/.test(query)) {
+			events.fail(new Error(`Unmocked subscription`))
+			return
+		}
+
+		events.open()
+		const listener = (data: unknown) => events.next(data)
+		note_liked_listeners.add(listener)
+		try {
+			await new Promise<void>(done => signal.addEventListener('abort', () => done()))
+		} finally {
+			note_liked_listeners.delete(listener)
+		}
+	}
 
 }

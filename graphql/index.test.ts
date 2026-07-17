@@ -235,6 +235,28 @@ namespace $.$$ {
 			})
 		},
 
+		'out-of-band revalidate refetches queries like a metadata-less mutation'($) {
+			const { calls, transport } = graphql_mock(stock_notes())
+			with_transport(transport, () => {
+
+				const probe = new Probe()
+
+				$mol_assert_equal(probe.notes().length, 2)
+				$mol_assert_equal(probe.dumb().viewer.name, 'Tester')
+				$mol_assert_equal(calls['demo_graphql_fixture_typenames_notes'], 1)
+				$mol_assert_equal(calls['Dumb'], 1)
+
+				// what the live panel's watcher calls on every subscription event
+				$demo_graphql_revalidate()
+
+				$mol_assert_equal(probe.dumb().viewer.name, 'Tester')
+				$mol_assert_equal(probe.notes().length, 2)
+				$mol_assert_equal(calls['Dumb'], 2) // universal marker reader
+				$mol_assert_equal(calls['demo_graphql_fixture_typenames_notes'], 2) // typed reader, via unknown_writes
+
+			})
+		},
+
 	})
 
 }

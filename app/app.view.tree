@@ -7,6 +7,7 @@ $demo_app $mol_page
 			title <= pinned_title \
 		<= Static_panel $mol_paragraph
 			title <= static_title \
+		<= Live $demo_note_live
 		<= Note_list $mol_list
 			rows <= note_rows /
 	Note_card* $demo_note_card

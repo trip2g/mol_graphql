@@ -135,6 +135,17 @@ namespace $ {
 	}
 
 	/**
+	 * Manual bump of the universal markers: for out-of-band writes the request
+	 * layer cannot see, e.g. a subscription event reporting that ANOTHER client
+	 * changed data. Same effect as a metadata-less mutation: every subscribed
+	 * query on the page refetches.
+	 */
+	export function $demo_graphql_revalidate() {
+		markers.all(markers.all() + 1)
+		markers.unknown_writes(markers.unknown_writes() + 1)
+	}
+
+	/**
 	 * Opaque fragment reference - what a parent's masked result carries at a
 	 * `...Fragment_name` spread site, and what it passes to the component that
 	 * owns the fragment. Only `<fragment_file>_unmask(ref)` gets the fields back.

@@ -1,0 +1,7 @@
+$demo_note_live $mol_view
+	sub /
+		<= Status $mol_paragraph
+			title <= status_title \
+		<= Last $mol_paragraph
+			title <= last_title \
+		<= watcher null

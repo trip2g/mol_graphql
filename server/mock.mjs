@@ -30,6 +30,36 @@ export const notes = [
 	},
 ]
 
+// Subscription plumbing: every note_like broadcasts the changed note to every
+// live note_liked stream. One entry per open SSE connection.
+const note_liked_listeners = new Set()
+
+// One live stream per subscribe call: a push queue bridged to an async
+// iterator. graphql-yoga turns it into SSE events natively.
+function note_liked_stream() {
+	const queue = []
+	let wake = null
+	const publish = note => {
+		queue.push(note)
+		if (wake) {
+			wake()
+			wake = null
+		}
+	}
+	note_liked_listeners.add(publish)
+	return {
+		[Symbol.asyncIterator]() { return this },
+		async next() {
+			while (!queue.length) await new Promise(resolve => { wake = resolve })
+			return { value: queue.shift(), done: false }
+		},
+		async return(value) {
+			note_liked_listeners.delete(publish)
+			return { value, done: true }
+		},
+	}
+}
+
 export const resolvers = {
 	Query: {
 		viewer: () => users[0],
@@ -40,7 +70,14 @@ export const resolvers = {
 			const note = notes.find(note => note.id === id)
 			if (!note) throw new Error(`Note ${id} not found`)
 			note.likes += 1
+			for (const publish of [...note_liked_listeners]) publish(note)
 			return note
+		},
+	},
+	Subscription: {
+		note_liked: {
+			subscribe: () => note_liked_stream(),
+			resolve: note => note,
 		},
 	},
 	Note: {

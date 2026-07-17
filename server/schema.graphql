@@ -7,6 +7,10 @@ type Mutation {
 	note_like(id: ID!): Note!
 }
 
+type Subscription {
+	note_liked: Note!
+}
+
 type Note {
 	id: ID!
 	title: String!
