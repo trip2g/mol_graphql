@@ -1,0 +1,20 @@
+<!doctype html>
+<html mol_view_root>
+
+	<head>
+		<meta charset="utf-8" />
+		<title>$mol × GraphQL fragments</title>
+		<meta name="viewport" content="width=device-width, height=device-height, initial-scale=1">
+		<meta name="mobile-web-app-capable" content="yes">
+	</head>
+
+	<body mol_view_root>
+		<div mol_view_root="$demo_app"></div>
+		<!-- static Pages build: web.js defines the global `$`, then mock.js
+		     installs the in-browser GraphQL executor as $demo_graphql_transport
+		     (both sync scripts run before $mol renders on DOMContentLoaded) -->
+		<script src="web.js" charset="utf-8"></script>
+		<script src="mock.js" charset="utf-8"></script>
+	</body>
+
+</html>

@@ -18,6 +18,20 @@ namespace $ {
 	export let $demo_graphql_endpoint = () => 'http://localhost:4000/graphql'
 
 	/**
+	 * Transport seam: how an operation reaches an executor. Overridable —
+	 * the default POSTs to $demo_graphql_endpoint() (sync-over-fiber via
+	 * $mol_fetch); the static GitHub Pages build swaps in an in-browser
+	 * executor (see pages/mock.mjs) with no server at all. A replacement
+	 * must return synchronously too (the fiber runtime expects it).
+	 */
+	export let $demo_graphql_transport = (query: string, variables?: object) =>
+		$mol_fetch.json($demo_graphql_endpoint(), {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ query, variables }),
+		}) as { data?: unknown; errors?: GraphQLErrorItem[] }
+
+	/**
 	 * Reactive invalidation marker — deliberately NOT a normalized cache.
 	 * Every query subscribes to the generation counter; every mutation bumps it,
 	 * so all $mol_mem-oized query results refetch. This is the whole "cache
@@ -56,11 +70,7 @@ namespace $ {
 		// queries subscribe to the invalidation marker before fetching
 		if (!mutation && revalidate) generation.value()
 
-		const res = $mol_fetch.json($demo_graphql_endpoint(), {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ query, variables }),
-		}) as { data?: unknown; errors?: GraphQLErrorItem[] }
+		const res = $demo_graphql_transport(query, variables)
 
 		if (res.errors) throw new $demo_graphql_error('GraphQL Error', res.errors)
 
