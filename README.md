@@ -1,3 +1,5 @@
+[English](README.md) · [Русский](README_ru.md)
+
 # $mol + GraphQL codegen: Relay's fragment way, without React
 
 A copy-paste-able starter showing how to wire **$mol** components to a GraphQL API with
