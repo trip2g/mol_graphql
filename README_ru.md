@@ -167,8 +167,7 @@ query DemoAppNotes {
 Приложение рендерит по карточке на заметку и передаёт каждой её ссылку - в дереве:
 
 ```
-		<= Note_list $mol_list
-			rows <= note_rows /
+<= Note_list $mol_list rows <= note_rows /
 	Note_card* $demo_note_card
 		note_ref <= card_ref* null
 ```
