@@ -12,3 +12,5 @@ $demo_note_card $mol_view
 				<= Like $mol_button_minor
 					title <= like_title \
 					click? <=> like? null
+				<= Renders $mol_paragraph
+					title <= renders_title \
