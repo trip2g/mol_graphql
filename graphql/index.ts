@@ -14,11 +14,11 @@ namespace $ {
 		}
 	}
 
-	/** GraphQL endpoint. Overridable — swap it for another transport/host. */
+	/** GraphQL endpoint. Overridable - swap it for another transport/host. */
 	export let $demo_graphql_endpoint = () => 'http://localhost:4000/graphql'
 
 	/**
-	 * Transport seam: how an operation reaches an executor. Overridable —
+	 * Transport seam: how an operation reaches an executor. Overridable -
 	 * the default POSTs to $demo_graphql_endpoint() (sync-over-fiber via
 	 * $mol_fetch); the static entry $demo_app_static (app/static/static.ts)
 	 * swaps in an in-browser mock with no server at all. A replacement
@@ -32,7 +32,7 @@ namespace $ {
 		}) as { data?: unknown; errors?: GraphQLErrorItem[] }
 
 	/**
-	 * Reactive invalidation markers — deliberately NOT a normalized cache.
+	 * Reactive invalidation markers - deliberately NOT a normalized cache.
 	 * `all` is the universal generation counter: queries with unknown reads
 	 * subscribe to it, every revalidating mutation bumps it. `type(name)` is a
 	 * per-typename marker family for the `by_typenames` codegen mode: a query
@@ -135,7 +135,7 @@ namespace $ {
 	}
 
 	/**
-	 * Opaque fragment reference — what a parent's masked result carries at a
+	 * Opaque fragment reference - what a parent's masked result carries at a
 	 * `...Fragment_name` spread site, and what it passes to the component that
 	 * owns the fragment. Only `<fragment_file>_unmask(ref)` gets the fields back.
 	 *

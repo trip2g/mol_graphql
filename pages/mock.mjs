@@ -1,12 +1,12 @@
 // FALLBACK in-browser GraphQL executor for the static GitHub Pages build
 // (canonical path: the $demo_app_static module, app/static/static.ts).
 // Same SDL (server/schema.graphql) and same data + resolvers (server/mock.mjs)
-// as the real mock server — esbuild bundles them all into pages/dist/mock.js.
+// as the real mock server - esbuild bundles them all into pages/dist/mock.js.
 //
 // Loaded AFTER web.js (which defines the global `$` namespace); installs
 // itself as $demo_graphql_transport. Must stay synchronous: the app's fiber
 // runtime ($mol_wire_sync style) expects the transport to return a value,
-// hence graphqlSync — all resolvers here are sync anyway.
+// hence graphqlSync - all resolvers here are sync anyway.
 import { buildSchema, graphqlSync } from 'graphql'
 import sdl from '../server/schema.graphql'
 import { resolvers } from '../server/mock.mjs'

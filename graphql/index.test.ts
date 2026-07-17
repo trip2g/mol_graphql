@@ -192,7 +192,7 @@ namespace $.$$ {
 				$mol_assert_equal(calls['demo_graphql_fixture_disable_viewer'], 1)
 				$mol_assert_equal(calls['demo_graphql_fixture_typenames_notes'], 1)
 
-				$demo_graphql_fixture_disable_like({ id: 'n1' }) // writes: [] — bumps nothing
+				$demo_graphql_fixture_disable_like({ id: 'n1' }) // writes: [] - bumps nothing
 
 				$mol_assert_equal(probe.viewer_disabled(), 'Tester')
 				$mol_assert_equal(probe.notes()[0].likes, 0)
@@ -202,7 +202,7 @@ namespace $.$$ {
 				$demo_graphql_fixture_typenames_like({ id: 'n1' }) // bumps the Note marker
 
 				$mol_assert_equal(probe.viewer_disabled(), 'Tester')
-				$mol_assert_equal(calls['demo_graphql_fixture_disable_viewer'], 1) // reads: [] — subscribed to nothing
+				$mol_assert_equal(calls['demo_graphql_fixture_disable_viewer'], 1) // reads: [] - subscribed to nothing
 
 			})
 		},

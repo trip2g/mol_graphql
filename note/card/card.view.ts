@@ -53,8 +53,8 @@ namespace $.$$ {
 		 * Counts real recomputations of this card's query-backed data.
 		 *
 		 * Reading note_ref() subscribes this mem to the same upstream atom as
-		 * note() — the parent page query $demo_app_notes memoized in
-		 * $demo_app.notes() — so it re-runs exactly when note() re-runs: every
+		 * note() - the parent page query $demo_app_notes memoized in
+		 * $demo_app.notes() - so it re-runs exactly when note() re-runs: every
 		 * time the page query refetches with changed data (any Like anywhere).
 		 * It can't just read note(): $mol_mem keeps the old value when a
 		 * recompute returns deep-equal data (unchanged card), so note() never
@@ -89,12 +89,12 @@ namespace $.$$ {
 	 * An independently gated render region: a label plus its own render probe
 	 * and its own flash. Everything here subscribes to the bound label() memo
 	 * of the owner, so the zone re-renders only when that memo's atom actually
-	 * emits — i.e. when the recomputed value is NOT structurally equal to the
+	 * emits - i.e. when the recomputed value is NOT structurally equal to the
 	 * cached one.
 	 */
 	export class $demo_note_card_zone extends $.$demo_note_card_zone {
 
-		/** Same probe-counter pattern as $demo_note_card.renders — see there. */
+		/** Same probe-counter pattern as $demo_note_card.renders - see there. */
 		@ $mol_mem
 		renders(): number {
 			this.label()

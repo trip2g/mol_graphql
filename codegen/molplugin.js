@@ -4,25 +4,25 @@
 //   export function $demo_app_notes(): demo_app_notesQuery {
 //       return $demo_graphql_request(`<operation + all spread fragment definitions>`) as demo_app_notesQuery
 //   }
-// The result/variables types are baked in by the generator — no reliance on
+// The result/variables types are baked in by the generator - no reliance on
 // byte-for-byte literal matching. Fragment spreads are merged into the sent
 // document at codegen time (transitively, by unique fragment name).
 //
 // Operations are auto-named from the file location: the canonical name is the
 // wrapper symbol without the `$` (note/card/like.graphql -> demo_note_card_like).
-// Whatever the author wrote — `query { ... }` (anonymous) or any name — is
+// Whatever the author wrote - `query { ... }` (anonymous) or any name - is
 // overridden to the canonical BEFORE the stock plugin runs, so the wrapper
 // symbol, the result type and the name the server/APM sees all match the file
-// path 1:1. Fragments are NOT renamed — they are spread by name (Relay model),
-// so their declared names are the API — but a non-canonical fragment name gets
+// path 1:1. Fragments are NOT renamed - they are spread by name (Relay model),
+// so their declared names are the API - but a non-canonical fragment name gets
 // a non-blocking warning recommending the path-derived one.
 //
 // For a fragment file:
 //   export type $demo_note_card_note = DemoNoteCard_noteFragment
-//   export type $demo_note_card_note_ref = $demo_graphql_ref<...>  — bare-name ref alias, usable in .view.tree.
-//   export function $demo_note_card_note_unmask(ref): DemoNoteCard_noteFragment  — identity, no request;
-//     overloaded to preserve the ref's nullability (nullable ref in — nullable fragment out).
-//   export function $demo_note_card_note_unmask_not_null(ref): DemoNoteCard_noteFragment  — throws on a
+//   export type $demo_note_card_note_ref = $demo_graphql_ref<...>  - bare-name ref alias, usable in .view.tree.
+//   export function $demo_note_card_note_unmask(ref): DemoNoteCard_noteFragment  - identity, no request;
+//     overloaded to preserve the ref's nullability (nullable ref in - nullable fragment out).
+//   export function $demo_note_card_note_unmask_not_null(ref): DemoNoteCard_noteFragment  - throws on a
 //     null/undefined ref, the runtime-checked alternative to TS `!`.
 //
 // It wraps the stock `typescript` / `typescript-operations` plugins and escapes
@@ -31,11 +31,11 @@
 // otherwise treat GraphQL variables ($id) and masking keys (' $fragmentRefs')
 // as module references. TS/JS treat $ as the same character, so types and
 // runtime strings are unchanged. $-names WE emit ($demo_..., doc-comment deps)
-// stay unescaped on purpose — those are real module references.
+// stay unescaped on purpose - those are real module references.
 
 //
 // `config.revalidation` picks the invalidation metadata baked into the wrappers:
-//   'all' (default)  pass caller opts through — every query subscribes to the
+//   'all' (default)  pass caller opts through - every query subscribes to the
 //                    universal marker, every mutation bumps it (refetch everything)
 //   'by_typenames'   walk the operation against the schema and bake in the
 //                    static type set: `reads` for a query, `writes` for a
@@ -129,7 +129,7 @@ function operationCode(def, doc, { symbol, runtime, fragments, schema, revalidat
 
 	// merge spread fragments (transitive closure over the global registry);
 	// the operation is printed from its (renamed) AST, not the raw source;
-	// @touches is a client-side invalidation hint — never sent to the server
+	// @touches is a client-side invalidation hint - never sent to the server
 	const closure = fragmentClosure(def, fragments, doc.location)
 	const merged = [print(def).trim(), ...closure.map(name => fragments[name].source)]
 		.join('\n\n')
@@ -184,7 +184,7 @@ function optsArgCode(def, { schema, revalidation, fragments, location }) {
 // against the schema: fragment spreads resolve through the global registry,
 // abstract types expand to every possible concrete type (a safe superset,
 // no runtime __typename needed), root operation types are excluded (every
-// query would carry Query — zero discrimination).
+// query would carry Query - zero discrimination).
 function typeSet(def, schema, fragments, location) {
 	const roots = new Set([schema.getQueryType(), schema.getMutationType(), schema.getSubscriptionType()].filter(Boolean))
 	const seen = new Set()
@@ -224,7 +224,7 @@ function typeSet(def, schema, fragments, location) {
 	return [...seen]
 }
 
-// @touches(types: ["Note", ...]) — the escape hatch for mutations whose side
+// @touches(types: ["Note", ...]) - the escape hatch for mutations whose side
 // effects reach types absent from their payload (urql's additionalTypenames
 // analogue). Parsed here, unioned into `writes`, stripped from the sent text.
 function touchesTypes(def, schema, location) {
@@ -248,7 +248,7 @@ function fragmentCode(def, { symbol, runtime, location }) {
 	const canonical = symbol.slice(1)
 	if (def.name.value !== canonical) {
 		console.warn(
-			`${location}: fragment "${def.name.value}" does not match its file location — ` +
+			`${location}: fragment "${def.name.value}" does not match its file location - ` +
 			`consider renaming it (and its spreads) to "${canonical}"`,
 		)
 	}
@@ -257,16 +257,16 @@ function fragmentCode(def, { symbol, runtime, location }) {
 	const refType = `${runtime}_ref<${fragType}>`
 	return [
 		``,
-		`/** Data declared by fragment \`${def.name.value}\` — spread it anywhere as \`...${def.name.value}\`. */`,
+		`/** Data declared by fragment \`${def.name.value}\` - spread it anywhere as \`...${def.name.value}\`. */`,
 		`export type ${symbol} = ${fragType}`,
 		``,
-		`/** Opaque ref to this fragment — a bare name usable where generics don't fit, e.g. a .view.tree property: \`<prop> null ${symbol}_ref\`. */`,
+		`/** Opaque ref to this fragment - a bare name usable where generics don't fit, e.g. a .view.tree property: \`<prop> null ${symbol}_ref\`. */`,
 		`export type ${symbol}_ref = ${refType}`,
 		``,
 		`/**`,
 		` * Identity accessor: turns an opaque fragment ref (masked parent data) into the typed fragment fields.`,
 		` * Preserves the ref's nullability: a non-null ref yields the fragment, a nullable ref (nullable schema`,
-		` * field, null list element) yields a nullable fragment — the compiler forces the null branch.`,
+		` * field, null list element) yields a nullable fragment - the compiler forces the null branch.`,
 		` */`,
 		`export function ${symbol}_unmask(ref: ${refType}): ${fragType}`,
 		`export function ${symbol}_unmask(ref: ${refType} | null | undefined): ${fragType} | null | undefined`,
@@ -274,7 +274,7 @@ function fragmentCode(def, { symbol, runtime, location }) {
 		`\treturn ref as ${fragType} | null | undefined`,
 		`}`,
 		``,
-		`/** Checked accessor: unmask that throws on a null/undefined ref — the runtime-checked alternative to TS \`!\`. */`,
+		`/** Checked accessor: unmask that throws on a null/undefined ref - the runtime-checked alternative to TS \`!\`. */`,
 		`export function ${symbol}_unmask_not_null(ref: ${refType} | null | undefined): ${fragType} {`,
 		`\tif (ref == null) throw new Error('null fragment ref for ${def.name.value}')`,
 		`\treturn ref as ${fragType}`,

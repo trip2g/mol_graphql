@@ -1,6 +1,6 @@
 # Build the $mol app the canonical way: a central mam workspace (hyoo-ru/mam,
 # provides the mam.ts/tsconfig bootstrap) with this repo mounted as its
-# `demo` package — same shape as hyoo-ru/mam_build does in CI. Then serve
+# `demo` package - same shape as hyoo-ru/mam_build does in CI. Then serve
 # the bundle statically.
 FROM node:24 AS build
 WORKDIR /mam

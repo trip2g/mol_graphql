@@ -9,7 +9,7 @@ namespace $.$$ {
 		}
 
 		/**
-		 * Page query. Its selection only owns `id` — note fields come from the
+		 * Page query. Its selection only owns `id` - note fields come from the
 		 * spread `...demo_note_card_note`, so `notes()[0].title` here is a TYPE
 		 * ERROR (masking): only $demo_note_card can unmask its fragment.
 		 */
@@ -60,7 +60,7 @@ namespace $.$$ {
 			return $demo_app_viewer({ revalidate: false })
 		}
 
-		/** Same probe-counter pattern as $demo_note_card.renders — see there. */
+		/** Same probe-counter pattern as $demo_note_card.renders - see there. */
 		@ $mol_mem
 		static_fetches(): number {
 			this.viewer_static()

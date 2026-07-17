@@ -1,5 +1,5 @@
 // FALLBACK static-site assembly (the canonical path is the $demo_app_static
-// module — see .github/workflows/deploy.yml). Assembles pages/dist/ from
+// module - see .github/workflows/deploy.yml). Assembles pages/dist/ from
 // the mam-built bundle (app/-/) + the Pages index.html + the esbuild-bundled
 // in-browser GraphQL executor. Run AFTER a mam build of demo/app.
 // All asset URLs are relative, so the result works under the /mol_graphql/

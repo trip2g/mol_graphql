@@ -1,12 +1,12 @@
 namespace $ {
 
-	// $demo_app_static: the STATIC entry — $demo_app with an in-browser GraphQL
+	// $demo_app_static: the STATIC entry - $demo_app with an in-browser GraphQL
 	// mock instead of a server. `mam demo/app/static` bundles it; the bundle's
 	// index.html renders $demo_app; deploy `app/static/-` to any static host
 	// (GitHub Pages) and the demo works with zero network dependencies.
 	//
 	// This module only swaps the transport seam ($demo_graphql_transport is an
-	// `export let` read on every request — same swap the tests do). It answers
+	// `export let` read on every request - same swap the tests do). It answers
 	// each operation by name from the same in-memory dataset as the real mock
 	// server (server/mock.mjs); keep the two in sync by hand. Likes increment
 	// statefully and reset on reload. Synchronous on purpose: the fiber runtime

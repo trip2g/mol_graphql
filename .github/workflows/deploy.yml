@@ -2,11 +2,11 @@
 # `demo` package (hyoo-ru/mam_build clones mam + deps, provides the bootstrap
 # mam.ts/tsconfig, mounts this repo at demo/, builds each module into <mod>/-
 # and runs its tests). The deployed site is the $demo_app_static entry: the
-# app + an in-browser GraphQL mock in ONE bundle — no server, no extra step.
+# app + an in-browser GraphQL mock in ONE bundle - no server, no extra step.
 #
 # Token: mam_build defaults to the workflow's GITHUB_TOKEN (everything it
 # clones is public). No PAT needed. It would only try to push if the repo
-# lacked .gitattributes/.gitignore — both are committed, so it never pushes
+# lacked .gitattributes/.gitignore - both are committed, so it never pushes
 # and `contents: read` suffices.
 #
 # Publishing uses the same Pages mechanism this repo already has configured

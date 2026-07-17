@@ -5,7 +5,7 @@
 // the build never depends on a running server.
 //
 // `revalidation` picks the compile-time invalidation mode baked into the
-// wrappers: 'all' (refetch everything — this demo's default) | 'by_typenames'
+// wrappers: 'all' (refetch everything - this demo's default) | 'by_typenames'
 // (per-type markers from a static schema walk) | 'disable' (never refetch).
 // See codegen/molplugin.js and the README section on `revalidation`.
 
