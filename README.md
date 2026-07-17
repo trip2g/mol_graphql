@@ -5,8 +5,9 @@ A copy-paste-able starter showing how to wire **$mol** components to a GraphQL A
 spread by name, masked for everyone else, with zero imports and no changes to the
 $mol/mam builder.
 
-**Live demo:** https://trip2g.github.io/mol_graphql/ (runs entirely in the browser: a
-static build with an in-browser GraphQL mock, no server; likes reset on reload).
+**Live demo:** https://trip2g.github.io/mol_graphql/ (runs entirely in the browser: the
+`$demo_app_static` entry bundles the app together with an in-browser GraphQL mock, no
+server; likes reset on reload).
 
 ```sh
 docker-compose up --build
@@ -28,7 +29,9 @@ module TypeScript. **Two builders meet through a file seam**: graphql-codegen wr
 in $mol itself. The generated symbol `$<module>_<opname>` appears in `namespace $`
 with zero imports.
 
-Paths below are relative to `demo/`.
+This repo is the `demo` package of a [mam](https://github.com/hyoo-ru/mam) workspace
+(the repo root mounts at `demo/`), so a repo path `app/…` is workspace path `demo/app/…`
+and the generated symbols carry the `$demo_` prefix.
 
 | `.graphql` source | generated `.graphql.ts` | exported symbol |
 |---|---|---|
@@ -48,7 +51,7 @@ without React and without its normalized store:
 - **A component declares its data needs as a named fragment** in its own `.graphql` file:
 
   ```graphql
-  # demo/note/card/note.graphql
+  # note/card/note.graphql
   fragment DemoNoteCard_note on Note {
     id
     title
@@ -66,7 +69,7 @@ without React and without its normalized store:
   runtime document registry:
 
   ```graphql
-  # demo/app/notes.graphql
+  # app/notes.graphql
   query DemoAppNotes {
     notes {
       id
@@ -90,7 +93,7 @@ without React and without its normalized store:
   a reactive `$mol_mem` property:
 
   ```ts
-  // demo/note/card/card.view.ts
+  // note/card/card.view.ts
   export class $demo_note_card extends $.$demo_note_card {
 
       // opaque ref bound by the parent in view.tree: `note_ref <= card_ref*`
@@ -110,7 +113,7 @@ without React and without its normalized store:
 ### Convention: a mutation refetches every query on the page
 
 No normalized store, no cache-consistency machinery. Invalidation is one reactive marker
-(`demo/graphql/index.ts`): every query subscribes to a generation counter, every mutation
+([`graphql/index.ts`](graphql/index.ts)): every query subscribes to a generation counter, every mutation
 bumps it, so all `$mol_mem`-oized queries on the current page re-run. That is the whole
 cache story, and you keep Relay's composition and masking ergonomics without it.
 
@@ -127,39 +130,43 @@ touching generated code.
 
 To watch this live, each note card shows a `renders` counter and there is a
 `revalidate:false` static panel. Like any note: every card's counter ticks together while
-the static panel stays put ([`card.view.ts`](demo/note/card/card.view.ts#L56-L69),
-[`app.view.ts`](demo/app/app.view.ts#L30-L60)).
+the static panel stays put ([`card.view.ts`](note/card/card.view.ts#L56-L69),
+[`app.view.ts`](app/app.view.ts#L30-L60)).
 
 ## Where to look (reading path)
 
 Follow these in order to see the whole idea, from a `.graphql` file to a running component:
 
-1. A component's own operations: [`app/notes.graphql`](demo/app/notes.graphql) and
-   [`note/card/note.graphql`](demo/note/card/note.graphql). Plain files next to the component.
+1. A component's own operations: [`app/notes.graphql`](app/notes.graphql) and
+   [`note/card/note.graphql`](note/card/note.graphql). Plain files next to the component.
 2. The codegen that types them: [`codegen/molplugin.js`](codegen/molplugin.js):
    [`operationCode`](codegen/molplugin.js#L71-L104) merges spread fragments into the sent
    string and emits the typed wrapper; [`fragmentCode`](codegen/molplugin.js#L105-L118)
    emits the fragment type and `unmask`; [`escapeDollars`](codegen/molplugin.js#L67-L69) is
    the `$`-escape fix. [`codegen/preset.js`](codegen/preset.js) wires one output per file.
-3. The generated output: [`app/notes.graphql.ts`](demo/app/notes.graphql.ts#L13-L30) (masked
+3. The generated output: [`app/notes.graphql.ts`](app/notes.graphql.ts#L13-L30) (masked
    query with the fragment merged in) and
-   [`note/card/note.graphql.ts`](demo/note/card/note.graphql.ts#L4-L13) (fragment type + `unmask`).
-4. The runtime: [`demo/graphql/index.ts`](demo/graphql/index.ts): the
-   [request layer and refetch convention](demo/graphql/index.ts#L35-L69), the
-   [generation marker](demo/graphql/index.ts#L26-L33), the
-   [opaque ref type](demo/graphql/index.ts#L69-L71).
-5. A component consuming a fragment: [`note/card/card.view.ts`](demo/note/card/card.view.ts):
-   [`note()` unmasks the ref](demo/note/card/card.view.ts#L15-L17);
-   [`renders()`](demo/note/card/card.view.ts#L56-L69) is the counter that ticks on every refetch.
-6. The opt-out in action: [`app/app.view.ts`](demo/app/app.view.ts#L44-L60):
+   [`note/card/note.graphql.ts`](note/card/note.graphql.ts#L4-L13) (fragment type + `unmask`).
+4. The runtime: [`graphql/index.ts`](graphql/index.ts): the
+   [request layer and refetch convention](graphql/index.ts#L35-L69), the
+   [generation marker](graphql/index.ts#L26-L33), the
+   [opaque ref type](graphql/index.ts#L69-L71).
+5. A component consuming a fragment: [`note/card/card.view.ts`](note/card/card.view.ts):
+   [`note()` unmasks the ref](note/card/card.view.ts#L15-L17);
+   [`renders()`](note/card/card.view.ts#L56-L69) is the counter that ticks on every refetch.
+6. The opt-out in action: [`app/app.view.ts`](app/app.view.ts#L44-L60):
    `viewer_static()` passes `{ revalidate: false }`, so its counter never moves.
 
 ## Project layout
 
+The repo is a **mam package** in the canonical [hyoo-ru](https://github.com/hyoo-ru)
+shape: no vendored builder bootstrap, just module files. A mam workspace (cloned from
+[hyoo-ru/mam](https://github.com/hyoo-ru/mam), which provides `mam.ts`/`tsconfig.json`
+and the namespace→repo map for `mol`/`node`) mounts this repo at `demo/` — that is what
+[hyoo-ru/mam_build](https://github.com/hyoo-ru/mam_build) does in CI with
+`package: 'demo'`.
+
 ```
-.meta.tree              namespace -> git repo mapping for the mam builder (mol, node)
-mam.ts / mam.jam.js     $mol workspace bootstrap (`class $`, from hyoo-ru/mam)
-tsconfig.json           workspace tsconfig (mam type-checker reads compilerOptions)
 codegen/
   graphqlgen.js         graphql-codegen config (checked-in SDL, no introspection)
   preset.js             one output per .graphql file + shared schema types
@@ -167,32 +174,64 @@ codegen/
 server/
   schema.graphql        the SDL: single source of truth for server AND codegen
   index.mjs             graphql-yoga mock server with in-memory data
-demo/
-  graphql/index.ts      runtime: request fn, error, reactive marker, ref type
-  graphql/schema.graphql.ts   (generated) shared scalar/enum/input types
-  app/                  $demo_app: page, plain query + fragment-composing query
-  note/card/            $demo_note_card: fragment + unmask + typed mutation
+graphql/index.ts        runtime: request fn, error, reactive marker, ref type
+graphql/schema.graphql.ts   (generated) shared scalar/enum/input types
+app/                    $demo_app: page, plain query + fragment-composing query
+app/static/             $demo_app_static: static entry — app + in-browser mock transport
+note/card/              $demo_note_card: fragment + unmask + typed mutation
+pages/                  FALLBACK static-site assembly (esbuild + graphql-js executor)
+package.json            DEV TOOL only: codegen + mock server (not part of the build)
 ```
 
 ## Commands
 
-| command | what |
+Local dev happens inside a mam workspace:
+
+```sh
+git clone https://github.com/hyoo-ru/mam.git mam-ws && cd mam-ws
+git clone https://github.com/trip2g/mol_graphql.git demo
+npm install
+```
+
+| command (from the workspace root) | what |
+|---|---|
+| `npm start` | mam dev server on :9080 (`/demo/app/`); run the mock server alongside |
+| `npx mam demo/app` | one-shot production build into `demo/app/-/` (type-checks the bundle, runs tests) |
+| `npx mam demo/app/static` | build the static serverless entry into `demo/app/static/-/` |
+
+| command (from `demo/`, this repo) | what |
 |---|---|
 | `docker-compose up --build` | mock GraphQL API on :4000 + built app on :8080 |
 | `npm install && npm run codegen` | regenerate all `*.graphql.ts` |
 | `npm run codegen:watch` | regenerate on every .graphql/schema change |
-| `npm start` | mam dev server on :9080 (`/demo/app/`); run `npm run server` alongside |
-| `npm run build` | one-shot production build into `demo/app/-/` (type-checks the bundle) |
 | `npm run server` | run the mock GraphQL server locally |
 
-The dev loop is `npm run codegen:watch` + `npm start` + `npm run server` in three
-terminals. The mam builder picks up regenerated `.graphql.ts` like any source change.
+The dev loop is `npm run codegen:watch` + `npm run server` (both in `demo/`) + `npm start`
+(workspace root) in three terminals. The mam builder picks up regenerated `.graphql.ts`
+like any source change.
+
+## Build & deploy (GitHub Pages)
+
+[`deploy.yml`](.github/workflows/deploy.yml) is the canonical hyoo-ru pipeline:
+`hyoo-ru/mam_build@master2` assembles the workspace (clones `hyoo-ru/mam` + deps,
+mounts this repo as `package: 'demo'`), builds `demo/app` and `demo/app/static`, runs
+every `*.test.ts`; then the `demo/app/static/-` folder is published to Pages. The
+default `GITHUB_TOKEN` is enough — everything mam_build clones is public. The deployed
+site is `$demo_app_static` ([`app/static/static.ts`](app/static/static.ts)): one bundle
+where the transport seam is swapped for a sync in-browser mock answering each operation
+from the same dataset as the mock server — keep it in sync with
+[`server/mock.mjs`](server/mock.mjs) by hand.
+
+[`pages.yml`](.github/workflows/pages.yml) is the manual FALLBACK (pre-canonical) path:
+mam build of `demo/app` + [`pages/build.mjs`](pages/build.mjs), which esbuild-bundles a
+real graphql-js executor over the SDL ([`pages/mock.mjs`](pages/mock.mjs)). Delete it
+(and `pages/`) once the canonical deploy is proven live.
 
 ## How to copy this into your project
 
 1. Take `codegen/` as-is; point `schema` at your SDL file and `documents` at your UI
    tree; set `molRuntime` to your prefix (e.g. `$myapp_graphql`).
-2. Port `demo/graphql/index.ts` under your prefix (request fn, error, ref type,
+2. Port `graphql/index.ts` under your prefix (request fn, error, ref type,
    invalidation marker), or swap the body of `*_request` for your transport.
 3. Write `.graphql` files next to your components: **one operation or fragment per
    file**; file path defines the generated symbol (`a/b/c.graphql` → `$a_b_c`);
@@ -202,21 +241,24 @@ terminals. The mam builder picks up regenerated `.graphql.ts` like any source ch
 
 ### Gotchas (learned the hard way)
 
-- **$mol module paths are literal**: `$demo_note_card` must live at `demo/note/card/`.
-  Underscore = directory separator, always. (The builder resolves dependency FQNs by
-  exact path segments.)
+- **$mol module paths are literal**: `$demo_note_card` must live at `demo/note/card/`
+  in the workspace, i.e. `note/card/` in this repo. Underscore = directory separator,
+  always. (The builder resolves dependency FQNs by exact path segments; that is also why
+  the mount point `demo` and not e.g. `mol_graphql` — no underscores in path segments.)
 - **The $mol dep scanner reads `$`-tokens everywhere**, including string literals and
   doc-comments. GraphQL variables (`$id`) and fragment-masking keys (`' $fragmentRefs'`)
   would become phantom module deps and fail the build. The codegen therefore escapes
   every `$` in emitted GraphQL strings and stock-plugin type output as `\u0024`
   (identical to TS/JS at both type and runtime level). If you hand-write such tokens in
-  a module `.ts`, escape them the same way (see `demo/graphql/index.ts`).
+  a module `.ts`, escape them the same way (see `graphql/index.ts`).
   Prior art avoided this by hand: adding empty stub directories named after the phantom
   tokens (`fragment/`, `id/`, …) so the scanner resolves them to nothing. Escaping every
   `$` is the canonical fix: no stub dirs, and it survives new field/variable names
   automatically.
 - **`mam.ts`/`mam.jam.js` must exist at the workspace root** (they declare `class $`);
-  without them every `$`-as-type use in mol fails to compile.
+  without them every `$`-as-type use in mol fails to compile. In the canonical layout
+  they come from the central [hyoo-ru/mam](https://github.com/hyoo-ru/mam) workspace —
+  a package repo like this one must NOT vendor its own.
 - The generated wrapper for an operation that spreads fragments carries a
   `/** Spreads fragments: $demo_note_card_note */` doc-comment; that is a real
   dependency edge for the builder (fragments are independent of the view hierarchy,
@@ -226,18 +268,18 @@ terminals. The mam builder picks up regenerated `.graphql.ts` like any source ch
 
 ## Testing query/mutation components
 
-$mol tests live next to the code: [`card.view.test.ts`](demo/note/card/card.view.test.ts),
-[`app.view.test.ts`](demo/app/app.view.test.ts). They use `$mol_test` + `$mol_assert`, and
-`npm run build` runs every `*.test.ts` (mam compiles them into `demo/app/-/node.test.js` and
+$mol tests live next to the code: [`card.view.test.ts`](note/card/card.view.test.ts),
+[`app.view.test.ts`](app/app.view.test.ts). They use `$mol_test` + `$mol_assert`, and
+every mam build runs every `*.test.ts` (it compiles them into `demo/app/-/node.test.js` and
 runs it; a failing test fails the build). Run just the bundle with
-`node --enable-source-maps demo/app/-/node.test.js`.
+`node --enable-source-maps demo/app/-/node.test.js` from the workspace root.
 
 GraphQL components are tested with NO server by mocking the transport seam. `$demo_graphql_transport`
 is a namespace `export let`, so a test reassigns it to a mock that counts calls per operation and
 answers from a tiny in-memory store, then restores it in `finally`:
 
 ```ts
-// demo/app/app.view.test.ts (sketch)
+// app/app.view.test.ts (sketch)
 const { calls, transport } = graphql_mock()          // per-operation call counter + in-memory store
 with_transport(transport, () => {
 	const app = $demo_app.make({ $ })
