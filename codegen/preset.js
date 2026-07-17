@@ -26,7 +26,9 @@ module.exports = {
 		const config = options.config || {}
 		const pack = config.molPackage || ''
 		const runtime = config.molRuntime || '$graphql'
-		const schemaTypesFile = config.molSchemaTypes || 'graphql/schema.graphql.ts'
+		// molSchemaTypes: false skips the shared types file (a secondary output
+		// reusing the one another output already generates, e.g. test fixtures)
+		const schemaTypesFile = config.molSchemaTypes === false ? null : config.molSchemaTypes || 'graphql/schema.graphql.ts'
 
 		const pluginMap = {
 			add: addPlugin,
@@ -104,7 +106,7 @@ module.exports = {
 
 		// shared schema-level types (Scalars, Maybe, Exact, enums, inputs) —
 		// one file, same `namespace $`, referenced by all generated files
-		outputs.push({
+		if (schemaTypesFile) outputs.push({
 			filename: schemaTypesFile,
 			schema: options.schema,
 			schemaAst: options.schemaAst,

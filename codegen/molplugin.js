@@ -20,10 +20,23 @@
 // runtime strings are unchanged. $-names WE emit ($demo_..., doc-comment deps)
 // stay unescaped on purpose — those are real module references.
 
+//
+// `config.revalidation` picks the invalidation metadata baked into the wrappers:
+//   'all' (default)  pass caller opts through — every query subscribes to the
+//                    universal marker, every mutation bumps it (refetch everything)
+//   'by_typenames'   walk the operation against the schema and bake in the
+//                    static type set: `reads` for a query, `writes` for a
+//                    mutation (payload types plus @touches); an empty set falls
+//                    back to the universal marker (unknown effect = assume all)
+//   'disable'        bake in an empty set: never subscribe, never bump
+// `{ revalidate: false }` at the call site opts out in every mode.
+
 const typescriptPlugin = require('@graphql-codegen/typescript')
 const operationsPlugin = require('@graphql-codegen/typescript-operations')
+const { getNamedType, isObjectType, isAbstractType } = require('graphql')
 
 const SUFFIX = { query: 'Query', mutation: 'Mutation', subscription: 'Subscription' }
+const REVALIDATION_MODES = ['all', 'by_typenames', 'disable']
 
 module.exports = {
 	plugin: async (schema, documents, config, info) => {
@@ -35,6 +48,10 @@ module.exports = {
 		const runtime = config.molRuntime || '$graphql'
 		const fragments = config.molFragments || {}
 		const symbol = config.molSymbol
+		const revalidation = config.revalidation || 'all'
+		if (!REVALIDATION_MODES.includes(revalidation)) {
+			throw new Error(`Unknown revalidation mode "${revalidation}": use ${REVALIDATION_MODES.map(mode => `'${mode}'`).join(' | ')}`)
+		}
 
 		const types = await operationsPlugin.plugin(schema, documents, stockConfig(config), info)
 		const lines = [escapeDollars(flatten(types))]
@@ -42,7 +59,7 @@ module.exports = {
 		for (const doc of documents) {
 			for (const def of doc.document.definitions) {
 				if (def.kind === 'OperationDefinition') {
-					lines.push(...operationCode(def, doc, { symbol, runtime, fragments }))
+					lines.push(...operationCode(def, doc, { symbol, runtime, fragments, schema, revalidation }))
 				} else if (def.kind === 'FragmentDefinition') {
 					lines.push(...fragmentCode(def, { symbol, runtime }))
 				}
@@ -53,9 +70,9 @@ module.exports = {
 	},
 }
 
-// strip our own mol* keys before handing config to the stock plugins
+// strip our own config keys before handing config to the stock plugins
 function stockConfig(config) {
-	const { molMode, molRuntime, molFragments, molSymbol, molSchemaTypes, ...rest } = config
+	const { molMode, molRuntime, molFragments, molSymbol, molSchemaTypes, revalidation, ...rest } = config
 	return rest
 }
 
@@ -68,7 +85,7 @@ function escapeDollars(code) {
 	return code.replace(/\$/g, '\\u0024')
 }
 
-function operationCode(def, doc, { symbol, runtime, fragments }) {
+function operationCode(def, doc, { symbol, runtime, fragments, schema, revalidation }) {
 	if (!def.name) throw new Error(`${doc.location}: anonymous operations are not supported — name it`)
 	if (def.operation === 'subscription') {
 		throw new Error(`${doc.location}: subscriptions are out of scope for this demo`)
@@ -78,9 +95,12 @@ function operationCode(def, doc, { symbol, runtime, fragments }) {
 	const resultType = opName + SUFFIX[def.operation]
 	const varsType = resultType + 'Variables'
 
-	// merge spread fragments (transitive closure over the global registry)
+	// merge spread fragments (transitive closure over the global registry);
+	// @touches is a client-side invalidation hint — never sent to the server
 	const closure = fragmentClosure(def, fragments, doc.location)
-	const merged = [(doc.rawSDL || '').trim(), ...closure.map(name => fragments[name].source)].join('\n\n')
+	const merged = [(doc.rawSDL || '').trim(), ...closure.map(name => fragments[name].source)]
+		.join('\n\n')
+		.replace(/\s*@touches\([^)]*\)/g, '')
 
 	// typed variables parameter, plus an optional per-call opts (the invalidation
 	// escape hatch: `{ revalidate: false }` opts this call out of refetch-on-mutation)
@@ -91,6 +111,8 @@ function operationCode(def, doc, { symbol, runtime, fragments }) {
 	const param = [varsParam, optsParam].filter(Boolean).join(', ')
 	const varsArg = varDefs.length === 0 ? 'undefined' : 'variables'
 
+	const optsArg = optsArgCode(def, { schema, revalidation, fragments, location: doc.location })
+
 	const code = ['']
 	if (closure.length) {
 		// doc-comment so the $mol builder records dependencies on the fragment
@@ -99,10 +121,92 @@ function operationCode(def, doc, { symbol, runtime, fragments }) {
 	}
 	code.push(
 		`export function ${symbol}(${param}): ${resultType} {`,
-		`\treturn ${runtime}_request(\`${escapeTemplate(merged)}\`, ${varsArg}, opts) as ${resultType}`,
+		`\treturn ${runtime}_request(\`${escapeTemplate(merged)}\`, ${varsArg}, ${optsArg}) as ${resultType}`,
 		`}`,
 	)
 	return code
+}
+
+// Third wrapper argument per revalidation mode. 'all' passes the caller opts
+// through untouched (universal marker). 'disable' pins an empty type set:
+// subscribe/bump nothing. 'by_typenames' bakes in the operation's static type
+// set: reads for a query, writes (payload types + @touches) for a mutation;
+// an empty computed set falls back to the universal marker (unknown effect =
+// assume everything). The `...opts` spread keeps `revalidate: false` working
+// while callers cannot override the baked-in sets.
+function optsArgCode(def, { schema, revalidation, fragments, location }) {
+	if (revalidation === 'all') return 'opts'
+
+	const key = def.operation === 'mutation' ? 'writes' : 'reads'
+	if (revalidation === 'disable') return `{ ${key}: [], ...opts }`
+
+	const types = new Set(typeSet(def, schema, fragments, location))
+	for (const name of touchesTypes(def, schema, location)) types.add(name)
+	if (!types.size) return 'opts'
+	return `{ ${key}: [${[...types].sort().map(name => `'${name}'`).join(', ')}], ...opts }`
+}
+
+// Object types an operation touches: for a query, what it READS; for a
+// mutation, what its payload claims it WROTE. A static walk of the selection
+// against the schema: fragment spreads resolve through the global registry,
+// abstract types expand to every possible concrete type (a safe superset,
+// no runtime __typename needed), root operation types are excluded (every
+// query would carry Query — zero discrimination).
+function typeSet(def, schema, fragments, location) {
+	const roots = new Set([schema.getQueryType(), schema.getMutationType(), schema.getSubscriptionType()].filter(Boolean))
+	const seen = new Set()
+	const spread = new Set()
+
+	const record = type => {
+		if (isObjectType(type)) {
+			if (!roots.has(type)) seen.add(type.name)
+		} else if (isAbstractType(type)) {
+			for (const concrete of schema.getPossibleTypes(type)) seen.add(concrete.name)
+		}
+	}
+
+	const walk = (selectionSet, parentType) => {
+		for (const sel of selectionSet.selections) {
+			if (sel.kind === 'Field') {
+				if (sel.name.value.startsWith('__')) continue // meta fields carry no schema type
+				const fieldDef = parentType.getFields()[sel.name.value]
+				if (!fieldDef) throw new Error(`${location}: unknown field "${sel.name.value}" on type "${parentType.name}"`)
+				const type = getNamedType(fieldDef.type)
+				record(type)
+				if (sel.selectionSet) walk(sel.selectionSet, type)
+			} else if (sel.kind === 'FragmentSpread') {
+				const name = sel.name.value
+				if (spread.has(name)) continue
+				spread.add(name)
+				const frag = fragments[name] // existence checked by fragmentClosure before this runs
+				walk(frag.node.selectionSet, schema.getType(frag.node.typeCondition.name.value))
+			} else if (sel.kind === 'InlineFragment') {
+				const cond = sel.typeCondition ? schema.getType(sel.typeCondition.name.value) : parentType
+				walk(sel.selectionSet, cond)
+			}
+		}
+	}
+
+	walk(def.selectionSet, def.operation === 'mutation' ? schema.getMutationType() : schema.getQueryType())
+	return [...seen]
+}
+
+// @touches(types: ["Note", ...]) — the escape hatch for mutations whose side
+// effects reach types absent from their payload (urql's additionalTypenames
+// analogue). Parsed here, unioned into `writes`, stripped from the sent text.
+function touchesTypes(def, schema, location) {
+	const dir = (def.directives || []).find(dir => dir.name.value === 'touches')
+	if (!dir) return []
+	const arg = (dir.arguments || []).find(arg => arg.name.value === 'types')
+	if (!arg || arg.value.kind !== 'ListValue') {
+		throw new Error(`${location}: @touches expects a list argument: @touches(types: ["TypeName"])`)
+	}
+	return arg.value.values.map(value => {
+		if (value.kind !== 'StringValue' || !schema.getType(value.value)) {
+			throw new Error(`${location}: @touches types must name schema types, got ${value.value ?? value.kind}`)
+		}
+		return value.value
+	})
 }
 
 function fragmentCode(def, { symbol, runtime }) {
