@@ -122,6 +122,35 @@ queries make the repeated reads cheap. The request layer and the unmask path sta
 and swappable, so smarter per-fragment reactivity via `$mol_mem` can land later without
 touching generated code.
 
+To watch this live, each note card shows a `renders` counter and there is a
+`revalidate:false` static panel. Like any note: every card's counter ticks together while
+the static panel stays put ([`card.view.ts`](demo/note/card/card.view.ts#L56-L69),
+[`app.view.ts`](demo/app/app.view.ts#L30-L60)).
+
+## Where to look (reading path)
+
+Follow these in order to see the whole idea, from a `.graphql` file to a running component:
+
+1. A component's own operations: [`app/notes.graphql`](demo/app/notes.graphql) and
+   [`note/card/note.graphql`](demo/note/card/note.graphql). Plain files next to the component.
+2. The codegen that types them: [`codegen/molplugin.js`](codegen/molplugin.js):
+   [`operationCode`](codegen/molplugin.js#L71-L104) merges spread fragments into the sent
+   string and emits the typed wrapper; [`fragmentCode`](codegen/molplugin.js#L105-L118)
+   emits the fragment type and `unmask`; [`escapeDollars`](codegen/molplugin.js#L67-L69) is
+   the `$`-escape fix. [`codegen/preset.js`](codegen/preset.js) wires one output per file.
+3. The generated output: [`app/notes.graphql.ts`](demo/app/notes.graphql.ts#L13-L30) (masked
+   query with the fragment merged in) and
+   [`note/card/note.graphql.ts`](demo/note/card/note.graphql.ts#L4-L13) (fragment type + `unmask`).
+4. The runtime: [`demo/graphql/index.ts`](demo/graphql/index.ts): the
+   [request layer and refetch convention](demo/graphql/index.ts#L35-L69), the
+   [generation marker](demo/graphql/index.ts#L26-L33), the
+   [opaque ref type](demo/graphql/index.ts#L69-L71).
+5. A component consuming a fragment: [`note/card/card.view.ts`](demo/note/card/card.view.ts):
+   [`note()` unmasks the ref](demo/note/card/card.view.ts#L15-L17);
+   [`renders()`](demo/note/card/card.view.ts#L56-L69) is the counter that ticks on every refetch.
+6. The opt-out in action: [`app/app.view.ts`](demo/app/app.view.ts#L44-L60):
+   `viewer_static()` passes `{ revalidate: false }`, so its counter never moves.
+
 ## Project layout
 
 ```
