@@ -46,7 +46,8 @@ module.exports = {
 				if (fragments[name]) {
 					throw new Error(
 						`Duplicate fragment name "${name}" in ${doc.location} and ${fragments[name].location}. ` +
-						`Fragment names must be globally unique — use the \${Component}_\${prop} convention.`,
+						`Fragment names must be globally unique — name each after its file path ` +
+						`(a/b/c.graphql -> a_b_c), which cannot collide.`,
 					)
 				}
 				fragments[name] = {

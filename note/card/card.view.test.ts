@@ -1,11 +1,11 @@
 namespace $.$$ {
 
 	// What a masked parent query result physically carries at a
-	// `...DemoNoteCard_note` spread site: the full fragment data,
+	// `...demo_note_card_note` spread site: the full fragment data,
 	// hidden behind the opaque ref TYPE. No network involved.
 	function note_ref_stub(): $demo_graphql_ref<$demo_note_card_note> {
 		// masking is type-level only, so the stub IS the data AND the ref
-		const data: DemoNoteCard_noteFragment & $demo_graphql_ref<$demo_note_card_note> = {
+		const data: demo_note_card_noteFragment & $demo_graphql_ref<$demo_note_card_note> = {
 			id: 'n1',
 			title: 'Hello',
 			body: 'World',

@@ -58,13 +58,13 @@ namespace $ {
 
 		switch (name) {
 
-			case 'DemoAppViewer':
+			case 'demo_app_viewer':
 				return { data: { viewer: { name: users[0].name } } }
 
-			case 'DemoAppNotes':
+			case 'demo_app_notes':
 				return { data: { notes: notes.map(note_data) } }
 
-			case 'DemoNoteCardLike': {
+			case 'demo_note_card_like': {
 				const id = (variables as { id: string }).id
 				const note = notes.find(note => note.id === id)
 				if (!note) return { errors: [{ message: `Note ${id} not found` }] }

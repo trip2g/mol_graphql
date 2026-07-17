@@ -2,6 +2,6 @@ query DemoFixtureNotes {
 	notes {
 		id
 		likes
-		...DemoFixture_author
+		...demo_graphql_fixture_typenames_author
 	}
 }

@@ -29,17 +29,17 @@ namespace $.$$ {
 
 			switch (name) {
 
-				case 'DemoFixtureViewer':
-				case 'DemoFixtureDisableViewer':
+				case 'demo_graphql_fixture_typenames_viewer':
+				case 'demo_graphql_fixture_disable_viewer':
 				case 'Dumb':
 					return { data: { viewer: { name: 'Tester' } } }
 
-				case 'DemoFixtureNotes':
+				case 'demo_graphql_fixture_typenames_notes':
 					return { data: { notes: notes.map(note => ({ ...note })) } }
 
-				case 'DemoFixtureLike':
-				case 'DemoFixtureTouch':
-				case 'DemoFixtureDisableLike':
+				case 'demo_graphql_fixture_typenames_like':
+				case 'demo_graphql_fixture_typenames_touch':
+				case 'demo_graphql_fixture_disable_like':
 					return like((variables as { id: string }).id)
 
 				case 'Bump':
@@ -116,15 +116,15 @@ namespace $.$$ {
 
 				$mol_assert_equal(probe.notes().length, 2)
 				$mol_assert_equal(probe.viewer(), 'Tester')
-				$mol_assert_equal(calls['DemoFixtureNotes'], 1)
-				$mol_assert_equal(calls['DemoFixtureViewer'], 1)
+				$mol_assert_equal(calls['demo_graphql_fixture_typenames_notes'], 1)
+				$mol_assert_equal(calls['demo_graphql_fixture_typenames_viewer'], 1)
 
 				$demo_graphql_fixture_typenames_like({ id: 'n1' }) // writes: ['Note']
 
 				$mol_assert_equal(probe.notes()[0].likes, 1) // reads Note: refetched
 				$mol_assert_equal(probe.viewer(), 'Tester')
-				$mol_assert_equal(calls['DemoFixtureNotes'], 2)
-				$mol_assert_equal(calls['DemoFixtureViewer'], 1) // reads only User: untouched, no opt-out needed
+				$mol_assert_equal(calls['demo_graphql_fixture_typenames_notes'], 2)
+				$mol_assert_equal(calls['demo_graphql_fixture_typenames_viewer'], 1) // reads only User: untouched, no opt-out needed
 
 			})
 		},
@@ -137,12 +137,12 @@ namespace $.$$ {
 
 				// no Note ever appears in the DATA; the read set comes from the schema walk
 				$mol_assert_equal(probe.notes().length, 0)
-				$mol_assert_equal(calls['DemoFixtureNotes'], 1)
+				$mol_assert_equal(calls['demo_graphql_fixture_typenames_notes'], 1)
 
 				$demo_graphql_fixture_typenames_like({ id: 'n1' }) // creates the first note
 
 				$mol_assert_equal(probe.notes().length, 1)
-				$mol_assert_equal(calls['DemoFixtureNotes'], 2)
+				$mol_assert_equal(calls['demo_graphql_fixture_typenames_notes'], 2)
 
 			})
 		},
@@ -154,12 +154,12 @@ namespace $.$$ {
 				const probe = new Probe()
 
 				$mol_assert_equal(probe.viewer(), 'Tester')
-				$mol_assert_equal(calls['DemoFixtureViewer'], 1)
+				$mol_assert_equal(calls['demo_graphql_fixture_typenames_viewer'], 1)
 
 				$demo_graphql_fixture_typenames_touch({ id: 'n1' }) // @touches(types: ["User"]) => writes: ['Note', 'User']
 
 				$mol_assert_equal(probe.viewer(), 'Tester')
-				$mol_assert_equal(calls['DemoFixtureViewer'], 2) // the declared side effect reached the User reader
+				$mol_assert_equal(calls['demo_graphql_fixture_typenames_viewer'], 2) // the declared side effect reached the User reader
 
 			})
 		},
@@ -171,12 +171,12 @@ namespace $.$$ {
 				const probe = new Probe()
 
 				$mol_assert_equal(probe.notes().length, 2)
-				$mol_assert_equal(calls['DemoFixtureNotes'], 1)
+				$mol_assert_equal(calls['demo_graphql_fixture_typenames_notes'], 1)
 
 				$demo_graphql_fixture_typenames_like({ id: 'n1' }, { revalidate: false }) // silent write
 
 				$mol_assert_equal(probe.notes()[0].likes, 0) // stale on purpose
-				$mol_assert_equal(calls['DemoFixtureNotes'], 1)
+				$mol_assert_equal(calls['demo_graphql_fixture_typenames_notes'], 1)
 
 			})
 		},
@@ -189,20 +189,20 @@ namespace $.$$ {
 
 				$mol_assert_equal(probe.viewer_disabled(), 'Tester')
 				$mol_assert_equal(probe.notes().length, 2)
-				$mol_assert_equal(calls['DemoFixtureDisableViewer'], 1)
-				$mol_assert_equal(calls['DemoFixtureNotes'], 1)
+				$mol_assert_equal(calls['demo_graphql_fixture_disable_viewer'], 1)
+				$mol_assert_equal(calls['demo_graphql_fixture_typenames_notes'], 1)
 
 				$demo_graphql_fixture_disable_like({ id: 'n1' }) // writes: [] — bumps nothing
 
 				$mol_assert_equal(probe.viewer_disabled(), 'Tester')
 				$mol_assert_equal(probe.notes()[0].likes, 0)
-				$mol_assert_equal(calls['DemoFixtureDisableViewer'], 1)
-				$mol_assert_equal(calls['DemoFixtureNotes'], 1) // even a Note reader stays put
+				$mol_assert_equal(calls['demo_graphql_fixture_disable_viewer'], 1)
+				$mol_assert_equal(calls['demo_graphql_fixture_typenames_notes'], 1) // even a Note reader stays put
 
 				$demo_graphql_fixture_typenames_like({ id: 'n1' }) // bumps the Note marker
 
 				$mol_assert_equal(probe.viewer_disabled(), 'Tester')
-				$mol_assert_equal(calls['DemoFixtureDisableViewer'], 1) // reads: [] — subscribed to nothing
+				$mol_assert_equal(calls['demo_graphql_fixture_disable_viewer'], 1) // reads: [] — subscribed to nothing
 
 			})
 		},
@@ -215,7 +215,7 @@ namespace $.$$ {
 
 				$mol_assert_equal(probe.notes().length, 2)
 				$mol_assert_equal(probe.dumb().viewer.name, 'Tester')
-				$mol_assert_equal(calls['DemoFixtureNotes'], 1)
+				$mol_assert_equal(calls['demo_graphql_fixture_typenames_notes'], 1)
 				$mol_assert_equal(calls['Dumb'], 1)
 
 				// a typed mutation must still refresh a metadata-less query (its reads are unknown)
@@ -224,13 +224,13 @@ namespace $.$$ {
 				$mol_assert_equal(probe.dumb().viewer.name, 'Tester')
 				$mol_assert_equal(calls['Dumb'], 2)
 				$mol_assert_equal(probe.notes()[0].likes, 1)
-				$mol_assert_equal(calls['DemoFixtureNotes'], 2)
+				$mol_assert_equal(calls['demo_graphql_fixture_typenames_notes'], 2)
 
 				// a metadata-less mutation must still refresh a typed query (its writes are unknown)
 				$demo_graphql_request('mutation Bump { bump }')
 
 				$mol_assert_equal(probe.notes().length, 2)
-				$mol_assert_equal(calls['DemoFixtureNotes'], 3)
+				$mol_assert_equal(calls['demo_graphql_fixture_typenames_notes'], 3)
 
 			})
 		},

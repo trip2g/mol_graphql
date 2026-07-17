@@ -19,13 +19,13 @@ namespace $.$$ {
 
 			switch (name) {
 
-				case 'DemoAppViewer':
+				case 'demo_app_viewer':
 					return { data: { viewer: { name: 'Tester' } } }
 
-				case 'DemoAppNotes':
+				case 'demo_app_notes':
 					return { data: { notes: notes.map(note => ({ ...note })) } }
 
-				case 'DemoNoteCardLike': {
+				case 'demo_note_card_like': {
 					const note = notes.find(note => note.id === (variables as { id: string }).id)!
 					note.likes += 1
 					return { data: { note_like: { id: note.id, likes: note.likes } } }
@@ -77,8 +77,8 @@ namespace $.$$ {
 				$mol_assert_equal(card.note().title, 'First')
 				$mol_assert_equal(card.Like().title(), '♥ 0')
 
-				$mol_assert_equal(calls['DemoAppViewer'], 1)
-				$mol_assert_equal(calls['DemoAppNotes'], 1)
+				$mol_assert_equal(calls['demo_app_viewer'], 1)
+				$mol_assert_equal(calls['demo_app_notes'], 1)
 
 			})
 		},
@@ -93,18 +93,18 @@ namespace $.$$ {
 				$mol_assert_equal(app.greeting(), 'Reading list of Tester')
 				$mol_assert_equal(card.note().likes, 0)
 				$mol_assert_equal(card.renders(), 1)
-				$mol_assert_equal(calls['DemoAppViewer'], 1)
-				$mol_assert_equal(calls['DemoAppNotes'], 1)
+				$mol_assert_equal(calls['demo_app_viewer'], 1)
+				$mol_assert_equal(calls['demo_app_notes'], 1)
 
 				card.like() // typed mutation: bumps the invalidation marker
 
-				$mol_assert_equal(calls['DemoNoteCardLike'], 1)
+				$mol_assert_equal(calls['demo_note_card_like'], 1)
 
 				// next read re-runs every page query: the convention
 				$mol_assert_equal(card.note().likes, 1)
 				$mol_assert_equal(app.greeting(), 'Reading list of Tester')
-				$mol_assert_equal(calls['DemoAppNotes'], 2)
-				$mol_assert_equal(calls['DemoAppViewer'], 2)
+				$mol_assert_equal(calls['demo_app_notes'], 2)
+				$mol_assert_equal(calls['demo_app_viewer'], 2)
 				$mol_assert_equal(card.renders(), 2)
 
 			})
@@ -118,13 +118,13 @@ namespace $.$$ {
 
 				$mol_assert_equal(app.viewer_static().viewer.name, 'Tester')
 				$mol_assert_equal(app.static_fetches(), 1)
-				$mol_assert_equal(calls['DemoAppViewer'], 1)
+				$mol_assert_equal(calls['demo_app_viewer'], 1)
 
 				$demo_note_card_like({ id: 'n1' }) // a revalidating mutation elsewhere on the page
 
 				$mol_assert_equal(app.viewer_static().viewer.name, 'Tester')
 				$mol_assert_equal(app.static_fetches(), 1)
-				$mol_assert_equal(calls['DemoAppViewer'], 1) // exactly once: the opt-out
+				$mol_assert_equal(calls['demo_app_viewer'], 1) // exactly once: the opt-out
 
 			})
 		},
@@ -136,12 +136,12 @@ namespace $.$$ {
 				const app = $demo_app.make({ $ })
 
 				$mol_assert_equal(app.notes().length, 2)
-				$mol_assert_equal(calls['DemoAppNotes'], 1)
+				$mol_assert_equal(calls['demo_app_notes'], 1)
 
 				$demo_note_card_like({ id: 'n1' }, { revalidate: false }) // silent write
 
 				$mol_assert_equal(app.notes().length, 2)
-				$mol_assert_equal(calls['DemoAppNotes'], 1) // no refetch
+				$mol_assert_equal(calls['demo_app_notes'], 1) // no refetch
 
 			})
 		},

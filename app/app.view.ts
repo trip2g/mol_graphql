@@ -10,7 +10,7 @@ namespace $.$$ {
 
 		/**
 		 * Page query. Its selection only owns `id` — note fields come from the
-		 * spread `...DemoNoteCard_note`, so `notes()[0].title` here is a TYPE
+		 * spread `...demo_note_card_note`, so `notes()[0].title` here is a TYPE
 		 * ERROR (masking): only $demo_note_card can unmask its fragment.
 		 */
 		@ $mol_mem

@@ -1,4 +1,4 @@
-query DemoAppViewer {
+query {
 	viewer {
 		name
 	}

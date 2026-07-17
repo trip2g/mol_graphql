@@ -1,12 +1,21 @@
 // graphql-codegen plugin: emits the $mol-style typed seam for one .graphql file.
 //
 // For an operation file (query/mutation):
-//   export function $demo_app_notes(): DemoAppNotesQuery {
-//       return $demo_graphql_request(`<operation + all spread fragment definitions>`) as DemoAppNotesQuery
+//   export function $demo_app_notes(): demo_app_notesQuery {
+//       return $demo_graphql_request(`<operation + all spread fragment definitions>`) as demo_app_notesQuery
 //   }
 // The result/variables types are baked in by the generator — no reliance on
 // byte-for-byte literal matching. Fragment spreads are merged into the sent
 // document at codegen time (transitively, by unique fragment name).
+//
+// Operations are auto-named from the file location: the canonical name is the
+// wrapper symbol without the `$` (note/card/like.graphql -> demo_note_card_like).
+// Whatever the author wrote — `query { ... }` (anonymous) or any name — is
+// overridden to the canonical BEFORE the stock plugin runs, so the wrapper
+// symbol, the result type and the name the server/APM sees all match the file
+// path 1:1. Fragments are NOT renamed — they are spread by name (Relay model),
+// so their declared names are the API — but a non-canonical fragment name gets
+// a non-blocking warning recommending the path-derived one.
 //
 // For a fragment file:
 //   export type $demo_note_card_note = DemoNoteCard_noteFragment
@@ -33,7 +42,7 @@
 
 const typescriptPlugin = require('@graphql-codegen/typescript')
 const operationsPlugin = require('@graphql-codegen/typescript-operations')
-const { getNamedType, isObjectType, isAbstractType } = require('graphql')
+const { getNamedType, isObjectType, isAbstractType, print } = require('graphql')
 
 const SUFFIX = { query: 'Query', mutation: 'Mutation', subscription: 'Subscription' }
 const REVALIDATION_MODES = ['all', 'by_typenames', 'disable']
@@ -53,15 +62,19 @@ module.exports = {
 			throw new Error(`Unknown revalidation mode "${revalidation}": use ${REVALIDATION_MODES.map(mode => `'${mode}'`).join(' | ')}`)
 		}
 
-		const types = await operationsPlugin.plugin(schema, documents, stockConfig(config), info)
+		// rename operations to the canonical before the stock plugin runs, so the
+		// generated result/variables types are derived from the canonical name too
+		const named = documents.map(doc => renameOperations(doc, symbol.slice(1)))
+
+		const types = await operationsPlugin.plugin(schema, named, stockConfig(config), info)
 		const lines = [escapeDollars(flatten(types))]
 
-		for (const doc of documents) {
+		for (const doc of named) {
 			for (const def of doc.document.definitions) {
 				if (def.kind === 'OperationDefinition') {
 					lines.push(...operationCode(def, doc, { symbol, runtime, fragments, schema, revalidation }))
 				} else if (def.kind === 'FragmentDefinition') {
-					lines.push(...fragmentCode(def, { symbol, runtime }))
+					lines.push(...fragmentCode(def, { symbol, runtime, location: doc.location }))
 				}
 			}
 		}
@@ -85,8 +98,23 @@ function escapeDollars(code) {
 	return code.replace(/\$/g, '\\u0024')
 }
 
+// AST-level rename of every operation definition to the path-derived canonical;
+// fragment definitions pass through untouched
+function renameOperations(doc, name) {
+	return {
+		...doc,
+		document: {
+			...doc.document,
+			definitions: doc.document.definitions.map(def =>
+				def.kind === 'OperationDefinition'
+					? { ...def, name: { kind: 'Name', value: name } }
+					: def,
+			),
+		},
+	}
+}
+
 function operationCode(def, doc, { symbol, runtime, fragments, schema, revalidation }) {
-	if (!def.name) throw new Error(`${doc.location}: anonymous operations are not supported — name it`)
 	if (def.operation === 'subscription') {
 		throw new Error(`${doc.location}: subscriptions are out of scope for this demo`)
 	}
@@ -96,9 +124,10 @@ function operationCode(def, doc, { symbol, runtime, fragments, schema, revalidat
 	const varsType = resultType + 'Variables'
 
 	// merge spread fragments (transitive closure over the global registry);
+	// the operation is printed from its (renamed) AST, not the raw source;
 	// @touches is a client-side invalidation hint — never sent to the server
 	const closure = fragmentClosure(def, fragments, doc.location)
-	const merged = [(doc.rawSDL || '').trim(), ...closure.map(name => fragments[name].source)]
+	const merged = [print(def).trim(), ...closure.map(name => fragments[name].source)]
 		.join('\n\n')
 		.replace(/\s*@touches\([^)]*\)/g, '')
 
@@ -209,7 +238,17 @@ function touchesTypes(def, schema, location) {
 	})
 }
 
-function fragmentCode(def, { symbol, runtime }) {
+function fragmentCode(def, { symbol, runtime, location }) {
+	// symmetric to operation auto-naming, but advisory only: renaming a fragment
+	// would break its spread sites, so the declared name stays authoritative
+	const canonical = symbol.slice(1)
+	if (def.name.value !== canonical) {
+		console.warn(
+			`${location}: fragment "${def.name.value}" does not match its file location — ` +
+			`consider renaming it (and its spreads) to "${canonical}"`,
+		)
+	}
+
 	const fragType = def.name.value + 'Fragment'
 	return [
 		``,

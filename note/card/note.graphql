@@ -1,4 +1,4 @@
-fragment DemoNoteCard_note on Note {
+fragment demo_note_card_note on Note {
 	id
 	title
 	body

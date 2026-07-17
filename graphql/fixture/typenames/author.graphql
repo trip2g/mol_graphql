@@ -1,4 +1,4 @@
-fragment DemoFixture_author on Note {
+fragment demo_graphql_fixture_typenames_author on Note {
 	author {
 		name
 	}

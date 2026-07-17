@@ -1,6 +1,6 @@
 query DemoAppNotes {
 	notes {
 		id
-		...DemoNoteCard_note
+		...demo_note_card_note
 	}
 }

@@ -15,8 +15,10 @@ const base = {
 	molPackage: 'demo',
 	// runtime module prefix: $demo_graphql_request / $demo_graphql_ref live in graphql/
 	molRuntime: '$demo_graphql',
-	// keep authored GraphQL names in generated type names:
-	// query DemoAppNotes -> DemoAppNotesQuery, fragment DemoNoteCard_note -> DemoNoteCard_noteFragment
+	// keep GraphQL names in generated type names as-is. Operation names are
+	// auto-derived from the file path (app/notes.graphql -> demo_app_notes ->
+	// demo_app_notesQuery); fragments keep their authored names
+	// (fragment DemoNoteCard_note -> DemoNoteCard_noteFragment)
 	namingConvention: 'keep',
 	// Relay-style fragment masking: a spread field is typed as an opaque
 	// fragment ref, not inlined fields
