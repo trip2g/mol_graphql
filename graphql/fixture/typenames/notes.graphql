@@ -1,0 +1,7 @@
+query DemoFixtureNotes {
+	notes {
+		id
+		likes
+		...DemoFixture_author
+	}
+}

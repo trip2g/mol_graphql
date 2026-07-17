@@ -1,0 +1,6 @@
+mutation DemoFixtureLike($id: ID!) {
+	note_like(id: $id) {
+		id
+		likes
+	}
+}

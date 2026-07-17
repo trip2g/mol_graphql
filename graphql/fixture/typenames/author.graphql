@@ -1,0 +1,5 @@
+fragment DemoFixture_author on Note {
+	author {
+		name
+	}
+}

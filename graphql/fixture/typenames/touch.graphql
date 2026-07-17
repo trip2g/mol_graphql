@@ -1,0 +1,6 @@
+mutation DemoFixtureTouch($id: ID!) @touches(types: ["User"]) {
+	note_like(id: $id) {
+		id
+		likes
+	}
+}

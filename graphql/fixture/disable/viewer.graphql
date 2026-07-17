@@ -1,0 +1,5 @@
+query DemoFixtureDisableViewer {
+	viewer {
+		name
+	}
+}

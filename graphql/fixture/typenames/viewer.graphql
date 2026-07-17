@@ -1,0 +1,5 @@
+query DemoFixtureViewer {
+	viewer {
+		name
+	}
+}
