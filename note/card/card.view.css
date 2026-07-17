@@ -20,3 +20,80 @@
 	opacity: 0.7;
 	margin-left: auto;
 }
+
+[demo_note_card_zone] {
+	display: flex;
+	gap: 0.5rem;
+	align-items: baseline;
+	padding: 0 0.25rem;
+	border-radius: 0.25rem;
+}
+
+[demo_note_card_zone_renders] {
+	opacity: 0.7;
+	font-size: 0.85em;
+}
+
+/* Re-render flash. The demo_flash attribute alternates a/b on every render;
+   each value maps to its own copy of the same keyframes, and the changed
+   animation-name makes the browser restart the pulse. */
+
+[demo_note_card][demo_flash="a"] {
+	animation: demo_note_card_flash_a 400ms ease-out;
+}
+
+[demo_note_card][demo_flash="b"] {
+	animation: demo_note_card_flash_b 400ms ease-out;
+}
+
+[demo_note_card_zone][demo_flash="a"] {
+	animation: demo_note_card_zone_flash_a 400ms ease-out;
+}
+
+[demo_note_card_zone][demo_flash="b"] {
+	animation: demo_note_card_zone_flash_b 400ms ease-out;
+}
+
+@keyframes demo_note_card_flash_a {
+	from {
+		outline: 2px solid hsl(210 80% 55% / 0.8);
+		outline-offset: 2px;
+	}
+	to {
+		outline: 2px solid transparent;
+		outline-offset: 2px;
+	}
+}
+
+@keyframes demo_note_card_flash_b {
+	from {
+		outline: 2px solid hsl(210 80% 55% / 0.8);
+		outline-offset: 2px;
+	}
+	to {
+		outline: 2px solid transparent;
+		outline-offset: 2px;
+	}
+}
+
+@keyframes demo_note_card_zone_flash_a {
+	from {
+		background-color: hsl(35 95% 55% / 0.4);
+		outline: 2px solid hsl(35 95% 55% / 0.8);
+	}
+	to {
+		background-color: transparent;
+		outline: 2px solid transparent;
+	}
+}
+
+@keyframes demo_note_card_zone_flash_b {
+	from {
+		background-color: hsl(35 95% 55% / 0.4);
+		outline: 2px solid hsl(35 95% 55% / 0.8);
+	}
+	to {
+		background-color: transparent;
+		outline: 2px solid transparent;
+	}
+}

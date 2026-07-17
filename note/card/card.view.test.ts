@@ -43,9 +43,14 @@ namespace $.$$ {
 
 			$mol_assert_equal(card.Title().title(), 'Hello')
 			$mol_assert_equal(card.Body().title(), 'World')
-			$mol_assert_equal(card.Author().title(), '— Ann')
-			$mol_assert_equal(card.Like().title(), '♥ 2')
+			const author = card.Author() as $demo_note_card_zone
+			const likes = card.Likes() as $demo_note_card_zone
+
+			$mol_assert_equal(author.Label().title(), '— Ann')
+			$mol_assert_equal(likes.Label().title(), '♥ 2')
 			$mol_assert_equal(card.renders(), 1)
+			$mol_assert_equal(author.renders(), 1)
+			$mol_assert_equal(likes.renders(), 1)
 
 		},
 

@@ -81,7 +81,7 @@ namespace $.$$ {
 				// the full note fields are only reachable through the card's unmask
 				const card = app.Note_card('n1') as $demo_note_card
 				$mol_assert_equal(card.note().title, 'First')
-				$mol_assert_equal(card.Like().title(), '♥ 0')
+				$mol_assert_equal(card.Likes().label(), '♥ 0')
 
 				$mol_assert_equal(calls['demo_app_viewer'], 1)
 				$mol_assert_equal(calls['demo_app_notes'], 1)
@@ -112,6 +112,49 @@ namespace $.$$ {
 				$mol_assert_equal(calls['demo_app_notes'], 2)
 				$mol_assert_equal(calls['demo_app_viewer'], 2)
 				$mol_assert_equal(card.renders(), 2)
+
+			})
+		},
+
+		'structural equality gates re-renders: only the changed region re-renders'($) {
+			const { transport } = graphql_mock()
+			with_transport(transport, () => {
+
+				const app = $demo_app.make({ $ })
+				const card = app.Note_card('n1') as $demo_note_card
+				const other = app.Note_card('n2') as $demo_note_card
+
+				const card_likes = card.Likes() as $demo_note_card_zone
+				const card_author = card.Author() as $demo_note_card_zone
+				const other_likes = other.Likes() as $demo_note_card_zone
+				const other_author = other.Author() as $demo_note_card_zone
+
+				// initial render of both cards, every probe at 1
+				$mol_assert_equal(card_likes.label(), '♥ 0')
+				$mol_assert_equal(card_author.label(), '— Ann')
+				$mol_assert_equal(card_likes.renders(), 1)
+				$mol_assert_equal(card_author.renders(), 1)
+				$mol_assert_equal(card.renders(), 1)
+				$mol_assert_equal(other_likes.renders(), 1)
+				$mol_assert_equal(other_author.renders(), 1)
+				$mol_assert_equal(other.renders(), 1)
+
+				card.like()
+
+				// the region whose data changed re-renders
+				$mol_assert_equal(card_likes.label(), '♥ 1')
+				$mol_assert_equal(card_likes.renders(), 2)
+
+				// both cards recomputed (every query refetched)...
+				$mol_assert_equal(card.renders(), 2)
+				$mol_assert_equal(other.renders(), 2)
+
+				// ...but deep-equal regions never re-render: $mol_compare_deep
+				// in the memo atoms cut the propagation
+				$mol_assert_equal(card_author.label(), '— Ann')
+				$mol_assert_equal(card_author.renders(), 1)
+				$mol_assert_equal(other_author.renders(), 1)
+				$mol_assert_equal(other_likes.renders(), 1)
 
 			})
 		},

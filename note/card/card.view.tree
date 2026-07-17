@@ -1,5 +1,8 @@
 $demo_note_card $mol_view
 	note_ref null $demo_note_card_note_ref
+	attr *
+		^
+		demo_flash <= flash_phase \
 	sub /
 		<= Title $mol_paragraph
 			title <= note_title \
@@ -7,10 +10,23 @@ $demo_note_card $mol_view
 			title <= note_body \
 		<= Foot $mol_row
 			sub /
-				<= Author $mol_paragraph
-					title <= author_name \
+				<= Author $demo_note_card_zone
+					label <= author_name \
+				<= Likes $demo_note_card_zone
+					label <= like_title \
 				<= Like $mol_button_minor
-					title <= like_title \
+					title \Like
 					click? <=> like? null
 				<= Renders $mol_paragraph
 					title <= renders_title \
+
+$demo_note_card_zone $mol_view
+	label \
+	attr *
+		^
+		demo_flash <= flash_phase \
+	sub /
+		<= Label $mol_paragraph
+			title <= label \
+		<= Renders $mol_paragraph
+			title <= renders_title \
