@@ -1,6 +1,7 @@
-// Assemble the static GitHub Pages site into pages/dist/:
-// the mam-built bundle (demo/app/-/) + the Pages index.html + the bundled
-// in-browser GraphQL mock. Run AFTER `npm run build`.
+// FALLBACK static-site assembly (the canonical path is the $demo_app_static
+// module — see .github/workflows/deploy.yml). Assembles pages/dist/ from
+// the mam-built bundle (app/-/) + the Pages index.html + the esbuild-bundled
+// in-browser GraphQL executor. Run AFTER a mam build of demo/app.
 // All asset URLs are relative, so the result works under the /mol_graphql/
 // project-Pages subpath as-is.
 import { cpSync, rmSync, copyFileSync } from 'node:fs'
@@ -12,7 +13,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const dist = join(root, 'pages/dist')
 
 rmSync(dist, { recursive: true, force: true })
-cpSync(join(root, 'demo/app/-'), dist, { recursive: true })
+cpSync(join(root, 'app/-'), dist, { recursive: true })
 
 // overwrite the bundle's index.html with the Pages variant (adds mock.js)
 copyFileSync(join(root, 'pages/index.html'), join(dist, 'index.html'))

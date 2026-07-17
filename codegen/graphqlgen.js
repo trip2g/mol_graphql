@@ -5,13 +5,16 @@
 // the build never depends on a running server.
 module.exports = {
 	schema: 'server/schema.graphql',
-	documents: 'demo/**/*.graphql',
+	documents: ['app/**/*.graphql', 'note/**/*.graphql'],
 	generates: {
-		'demo/': {
+		'./': {
 			preset: require('./preset.js'),
 			plugins: [], // per-file plugin chains are built by the preset
 			config: {
-				// runtime module prefix: $demo_graphql_request / $demo_graphql_ref live in demo/graphql/
+				// this repo is the `demo` package of a mam workspace: repo-relative
+				// app/notes.graphql is workspace demo/app/notes.graphql = $demo_app_notes
+				molPackage: 'demo',
+				// runtime module prefix: $demo_graphql_request / $demo_graphql_ref live in graphql/
 				molRuntime: '$demo_graphql',
 				// keep authored GraphQL names in generated type names:
 				// query DemoAppNotes -> DemoAppNotesQuery, fragment DemoNoteCard_note -> DemoNoteCard_noteFragment

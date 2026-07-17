@@ -7,4 +7,6 @@ node
 **/-css
 **/-meta.tree
 **/-node
-demo/app/-
+app/-
+app/static/-
+pages/dist
