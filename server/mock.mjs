@@ -1,6 +1,7 @@
 // Shared mock: in-memory data + resolvers.
-// Used by the real mock server (index.mjs) AND bundled into the in-browser
-// executor for the static GitHub Pages build (pages/mock.mjs).
+// Used by the real mock server (index.mjs) AND bundled into the fallback
+// in-browser executor (pages/mock.mjs). The canonical static entry
+// (app/static/static.ts) mirrors this dataset by hand — keep them in sync.
 export const users = [
 	{ id: 'u1', name: 'Ada Lovelace' },
 	{ id: 'u2', name: 'Alan Turing' },

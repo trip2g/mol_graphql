@@ -1,4 +1,5 @@
-// In-browser GraphQL executor for the static GitHub Pages build: no server.
+// FALLBACK in-browser GraphQL executor for the static GitHub Pages build
+// (canonical path: the $demo_app_static module, app/static/static.ts).
 // Same SDL (server/schema.graphql) and same data + resolvers (server/mock.mjs)
 // as the real mock server — esbuild bundles them all into pages/dist/mock.js.
 //
