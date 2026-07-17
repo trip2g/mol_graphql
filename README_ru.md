@@ -585,7 +585,6 @@ graphql/schema.graphql.ts   (generated) shared scalar/enum/input types
 app/                    $demo_app: page, plain query + fragment-composing query
 static/                 $demo_static: static entry, app + in-browser mock transport
 note/card/              $demo_note_card: fragment + unmask + typed mutation
-pages/                  FALLBACK static-site assembly (esbuild + graphql-js executor)
 package.json            DEV TOOL only: codegen + mock server (not part of the build)
 ```
 
@@ -628,11 +627,6 @@ mam_build, публично. Задеплоенный сайт - это `$demo_s
 заменён на синхронный браузерный мок, отвечающий на каждую операцию из того же
 набора данных, что и мок-сервер. Синхронизируйте его с
 [`server/mock.mjs`](server/mock.mjs) вручную.
-
-[`pages.yml`](.github/workflows/pages.yml) - ручной ЗАПАСНОЙ (доканоничный) путь:
-mam-сборка `demo/app` + [`pages/build.mjs`](pages/build.mjs), который через esbuild
-собирает настоящий graphql-js-исполнитель поверх SDL ([`pages/mock.mjs`](pages/mock.mjs)).
-Удалите его (вместе с `pages/`), как только каноничный деплой подтверждён вживую.
 
 ## Как перенести это в свой проект
 

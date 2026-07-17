@@ -5,8 +5,7 @@
 	"scripts": {
 		"codegen": "graphql-codegen --config codegen/graphqlgen.js",
 		"codegen:watch": "graphql-codegen --config codegen/graphqlgen.js --watch",
-		"server": "node server/index.mjs",
-		"build:pages": "node pages/build.mjs"
+		"server": "node server/index.mjs"
 	},
 	"engines": {
 		"node": ">=24.0.0"
@@ -17,7 +16,6 @@
 		"@graphql-codegen/typescript": "^4.1.6",
 		"@graphql-codegen/typescript-operations": "^4.6.1",
 		"@parcel/watcher": "^2.5.1",
-		"esbuild": "^0.25.5",
 		"graphql": "^16.11.0"
 	}
 }

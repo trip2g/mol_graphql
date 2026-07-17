@@ -568,7 +568,6 @@ graphql/schema.graphql.ts   (generated) shared scalar/enum/input types
 app/                    $demo_app: page, plain query + fragment-composing query
 static/                 $demo_static: static entry, app + in-browser mock transport
 note/card/              $demo_note_card: fragment + unmask + typed mutation
-pages/                  FALLBACK static-site assembly (esbuild + graphql-js executor)
 package.json            DEV TOOL only: codegen + mock server (not part of the build)
 ```
 
@@ -610,11 +609,6 @@ site is `$demo_static` ([`static/static.ts`](static/static.ts)): one bundle
 where the transport seam is swapped for a sync in-browser mock answering each operation
 from the same dataset as the mock server. Keep it in sync with
 [`server/mock.mjs`](server/mock.mjs) by hand.
-
-[`pages.yml`](.github/workflows/pages.yml) is the manual FALLBACK (pre-canonical) path:
-mam build of `demo/app` + [`pages/build.mjs`](pages/build.mjs), which esbuild-bundles a
-real graphql-js executor over the SDL ([`pages/mock.mjs`](pages/mock.mjs)). Delete it
-(and `pages/`) once the canonical deploy is proven live.
 
 ## How to copy this into your project
 
