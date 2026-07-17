@@ -5,6 +5,9 @@ A copy-paste-able starter showing how to wire **$mol** components to a GraphQL A
 spread by name, masked for everyone else, with zero imports and no changes to the
 $mol/mam builder.
 
+**Live demo:** https://trip2g.github.io/mol_graphql/ (runs entirely in the browser: a
+static build with an in-browser GraphQL mock, no server).
+
 ```sh
 docker-compose up --build
 # open http://localhost:8080  (mock GraphQL API is on http://localhost:4000/graphql)
