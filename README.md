@@ -158,17 +158,17 @@ Follow these in order to see the whole idea, from a `.graphql` file to a running
 
 ```
 .meta.tree              namespace -> git repo mapping for the mam builder (mol, node)
-mam.ts / mam.jam.js     $mol workspace bootstrap (declares `class $`; from hyoo-ru/mam)
-tsconfig.json           workspace tsconfig (the mam type-checker reads compilerOptions from it)
+mam.ts / mam.jam.js     $mol workspace bootstrap (`class $`, from hyoo-ru/mam)
+tsconfig.json           workspace tsconfig (mam type-checker reads compilerOptions)
 codegen/
-  graphqlgen.js         graphql-codegen config (schema = checked-in SDL, no live introspection)
-  preset.js             custom preset: one output per .graphql file + shared schema types
-  molplugin.js          emits the typed wrappers / fragment unmask helpers in namespace $
+  graphqlgen.js         graphql-codegen config (checked-in SDL, no introspection)
+  preset.js             one output per .graphql file + shared schema types
+  molplugin.js          typed wrappers + fragment unmask helpers, in namespace $
 server/
   schema.graphql        the SDL: single source of truth for server AND codegen
   index.mjs             graphql-yoga mock server with in-memory data
 demo/
-  graphql/index.ts      runtime: $demo_graphql_request, error type, reactive marker, ref type
+  graphql/index.ts      runtime: request fn, error, reactive marker, ref type
   graphql/schema.graphql.ts   (generated) shared scalar/enum/input types
   app/                  $demo_app: page, plain query + fragment-composing query
   note/card/            $demo_note_card: fragment + unmask + typed mutation
