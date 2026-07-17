@@ -4,8 +4,13 @@ namespace $.$$ {
 
 		/** Plain typed query: result type is baked into $demo_app_viewer by the codegen. */
 		@ $mol_mem
+		viewer() {
+			return $demo_app_viewer().viewer
+		}
+
+		@ $mol_mem
 		greeting() {
-			return `Reading list of ${$demo_app_viewer().viewer.name}`
+			return `Reading list of ${this.viewer().name}`
 		}
 
 		/**
@@ -33,7 +38,7 @@ namespace $.$$ {
 		 */
 		@ $mol_mem
 		pinned() {
-			return $demo_note_card_note_unmask($demo_app_viewer().viewer.pinned_note)
+			return $demo_note_card_note_unmask(this.viewer().pinned_note)
 		}
 
 		pinned_title() {

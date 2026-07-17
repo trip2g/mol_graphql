@@ -97,9 +97,10 @@ namespace $.$$ {
 				const card = app.Note_card('n1') as $demo_note_card
 
 				$mol_assert_equal(app.greeting(), 'Reading list of Tester')
+				$mol_assert_equal(app.pinned(), null) // shares the viewer cell with greeting()
 				$mol_assert_equal(card.note().likes, 0)
 				$mol_assert_equal(card.renders(), 1)
-				$mol_assert_equal(calls['demo_app_viewer'], 1)
+				$mol_assert_equal(calls['demo_app_viewer'], 1) // one fetch serves both readers
 				$mol_assert_equal(calls['demo_app_notes'], 1)
 
 				card.like() // typed mutation: bumps the invalidation marker
@@ -109,8 +110,9 @@ namespace $.$$ {
 				// next read re-runs every page query: the convention
 				$mol_assert_equal(card.note().likes, 1)
 				$mol_assert_equal(app.greeting(), 'Reading list of Tester')
+				$mol_assert_equal(app.pinned(), null)
 				$mol_assert_equal(calls['demo_app_notes'], 2)
-				$mol_assert_equal(calls['demo_app_viewer'], 2)
+				$mol_assert_equal(calls['demo_app_viewer'], 2) // one refetch, not one per reader
 				$mol_assert_equal(card.renders(), 2)
 
 			})
