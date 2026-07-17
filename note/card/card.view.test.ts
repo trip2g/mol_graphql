@@ -49,6 +49,41 @@ namespace $.$$ {
 
 		},
 
+		'unmask preserves nullability: a non-null ref yields the fragment'($) {
+
+			// the non-null overload: the result needs no null check
+			const note: $demo_note_card_note = $demo_note_card_note_unmask(note_ref_stub())
+			$mol_assert_equal(note.title, 'Hello')
+
+		},
+
+		'unmask preserves nullability: a null ref stays null'($) {
+
+			// a nullable schema field types its ref as `Ref | null`; the overload
+			// carries that through, so the result MUST be checked before field access
+			const ref = null as $demo_graphql_ref<$demo_note_card_note> | null
+			const note: $demo_note_card_note | null | undefined = $demo_note_card_note_unmask(ref)
+			$mol_assert_equal(note, null)
+
+		},
+
+		'unmask_not_null returns the fields for a present ref'($) {
+
+			const note = $demo_note_card_note_unmask_not_null(note_ref_stub())
+			$mol_assert_equal(note.title, 'Hello')
+			$mol_assert_equal(note.author.name, 'Ann')
+
+		},
+
+		'unmask_not_null throws on a null ref, naming the fragment'($) {
+
+			$mol_assert_fail(
+				() => $demo_note_card_note_unmask_not_null(null),
+				'null fragment ref for demo_note_card_note',
+			)
+
+		},
+
 	})
 
 }

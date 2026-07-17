@@ -19,7 +19,11 @@
 //
 // For a fragment file:
 //   export type $demo_note_card_note = DemoNoteCard_noteFragment
-//   export function $demo_note_card_note_unmask(ref): DemoNoteCard_noteFragment  — identity, no request.
+//   export type $demo_note_card_note_ref = $demo_graphql_ref<...>  — bare-name ref alias, usable in .view.tree.
+//   export function $demo_note_card_note_unmask(ref): DemoNoteCard_noteFragment  — identity, no request;
+//     overloaded to preserve the ref's nullability (nullable ref in — nullable fragment out).
+//   export function $demo_note_card_note_unmask_not_null(ref): DemoNoteCard_noteFragment  — throws on a
+//     null/undefined ref, the runtime-checked alternative to TS `!`.
 //
 // It wraps the stock `typescript` / `typescript-operations` plugins and escapes
 // every `$` they (or the embedded GraphQL) produce as `\u0024`: the $mol builder
@@ -250,13 +254,29 @@ function fragmentCode(def, { symbol, runtime, location }) {
 	}
 
 	const fragType = def.name.value + 'Fragment'
+	const refType = `${runtime}_ref<${fragType}>`
 	return [
 		``,
 		`/** Data declared by fragment \`${def.name.value}\` — spread it anywhere as \`...${def.name.value}\`. */`,
 		`export type ${symbol} = ${fragType}`,
 		``,
-		`/** Identity accessor: turns an opaque fragment ref (masked parent data) into the typed fragment fields. */`,
-		`export function ${symbol}_unmask(ref: ${runtime}_ref<${fragType}>): ${fragType} {`,
+		`/** Opaque ref to this fragment — a bare name usable where generics don't fit, e.g. a .view.tree property: \`<prop> null ${symbol}_ref\`. */`,
+		`export type ${symbol}_ref = ${refType}`,
+		``,
+		`/**`,
+		` * Identity accessor: turns an opaque fragment ref (masked parent data) into the typed fragment fields.`,
+		` * Preserves the ref's nullability: a non-null ref yields the fragment, a nullable ref (nullable schema`,
+		` * field, null list element) yields a nullable fragment — the compiler forces the null branch.`,
+		` */`,
+		`export function ${symbol}_unmask(ref: ${refType}): ${fragType}`,
+		`export function ${symbol}_unmask(ref: ${refType} | null | undefined): ${fragType} | null | undefined`,
+		`export function ${symbol}_unmask(ref: ${refType} | null | undefined): ${fragType} | null | undefined {`,
+		`\treturn ref as ${fragType} | null | undefined`,
+		`}`,
+		``,
+		`/** Checked accessor: unmask that throws on a null/undefined ref — the runtime-checked alternative to TS \`!\`. */`,
+		`export function ${symbol}_unmask_not_null(ref: ${refType} | null | undefined): ${fragType} {`,
+		`\tif (ref == null) throw new Error('null fragment ref for ${def.name.value}')`,
 		`\treturn ref as ${fragType}`,
 		`}`,
 	]

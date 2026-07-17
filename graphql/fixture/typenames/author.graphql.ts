@@ -7,8 +7,23 @@ export type demo_graphql_fixture_typenames_authorFragment = { __typename?: 'Note
 /** Data declared by fragment `demo_graphql_fixture_typenames_author` — spread it anywhere as `...demo_graphql_fixture_typenames_author`. */
 export type $demo_graphql_fixture_typenames_author = demo_graphql_fixture_typenames_authorFragment
 
-/** Identity accessor: turns an opaque fragment ref (masked parent data) into the typed fragment fields. */
-export function $demo_graphql_fixture_typenames_author_unmask(ref: $demo_graphql_ref<demo_graphql_fixture_typenames_authorFragment>): demo_graphql_fixture_typenames_authorFragment {
+/** Opaque ref to this fragment — a bare name usable where generics don't fit, e.g. a .view.tree property: `<prop> null $demo_graphql_fixture_typenames_author_ref`. */
+export type $demo_graphql_fixture_typenames_author_ref = $demo_graphql_ref<demo_graphql_fixture_typenames_authorFragment>
+
+/**
+ * Identity accessor: turns an opaque fragment ref (masked parent data) into the typed fragment fields.
+ * Preserves the ref's nullability: a non-null ref yields the fragment, a nullable ref (nullable schema
+ * field, null list element) yields a nullable fragment — the compiler forces the null branch.
+ */
+export function $demo_graphql_fixture_typenames_author_unmask(ref: $demo_graphql_ref<demo_graphql_fixture_typenames_authorFragment>): demo_graphql_fixture_typenames_authorFragment
+export function $demo_graphql_fixture_typenames_author_unmask(ref: $demo_graphql_ref<demo_graphql_fixture_typenames_authorFragment> | null | undefined): demo_graphql_fixture_typenames_authorFragment | null | undefined
+export function $demo_graphql_fixture_typenames_author_unmask(ref: $demo_graphql_ref<demo_graphql_fixture_typenames_authorFragment> | null | undefined): demo_graphql_fixture_typenames_authorFragment | null | undefined {
+	return ref as demo_graphql_fixture_typenames_authorFragment | null | undefined
+}
+
+/** Checked accessor: unmask that throws on a null/undefined ref — the runtime-checked alternative to TS `!`. */
+export function $demo_graphql_fixture_typenames_author_unmask_not_null(ref: $demo_graphql_ref<demo_graphql_fixture_typenames_authorFragment> | null | undefined): demo_graphql_fixture_typenames_authorFragment {
+	if (ref == null) throw new Error('null fragment ref for demo_graphql_fixture_typenames_author')
 	return ref as demo_graphql_fixture_typenames_authorFragment
 }
 

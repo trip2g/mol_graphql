@@ -7,8 +7,23 @@ export type demo_note_card_noteFragment = { __typename?: 'Note', id: string, tit
 /** Data declared by fragment `demo_note_card_note` — spread it anywhere as `...demo_note_card_note`. */
 export type $demo_note_card_note = demo_note_card_noteFragment
 
-/** Identity accessor: turns an opaque fragment ref (masked parent data) into the typed fragment fields. */
-export function $demo_note_card_note_unmask(ref: $demo_graphql_ref<demo_note_card_noteFragment>): demo_note_card_noteFragment {
+/** Opaque ref to this fragment — a bare name usable where generics don't fit, e.g. a .view.tree property: `<prop> null $demo_note_card_note_ref`. */
+export type $demo_note_card_note_ref = $demo_graphql_ref<demo_note_card_noteFragment>
+
+/**
+ * Identity accessor: turns an opaque fragment ref (masked parent data) into the typed fragment fields.
+ * Preserves the ref's nullability: a non-null ref yields the fragment, a nullable ref (nullable schema
+ * field, null list element) yields a nullable fragment — the compiler forces the null branch.
+ */
+export function $demo_note_card_note_unmask(ref: $demo_graphql_ref<demo_note_card_noteFragment>): demo_note_card_noteFragment
+export function $demo_note_card_note_unmask(ref: $demo_graphql_ref<demo_note_card_noteFragment> | null | undefined): demo_note_card_noteFragment | null | undefined
+export function $demo_note_card_note_unmask(ref: $demo_graphql_ref<demo_note_card_noteFragment> | null | undefined): demo_note_card_noteFragment | null | undefined {
+	return ref as demo_note_card_noteFragment | null | undefined
+}
+
+/** Checked accessor: unmask that throws on a null/undefined ref — the runtime-checked alternative to TS `!`. */
+export function $demo_note_card_note_unmask_not_null(ref: $demo_graphql_ref<demo_note_card_noteFragment> | null | undefined): demo_note_card_noteFragment {
+	if (ref == null) throw new Error('null fragment ref for demo_note_card_note')
 	return ref as demo_note_card_noteFragment
 }
 
