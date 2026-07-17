@@ -133,6 +133,62 @@ To watch this live, each note card shows a `renders` counter and there is a
 the static panel stays put ([`card.view.ts`](note/card/card.view.ts#L56-L69),
 [`app.view.ts`](app/app.view.ts#L30-L60)).
 
+### Choosing the refetch scope: the `revalidation` codegen mode
+
+How much a mutation refetches is a compile-time switch. One line in the plugin config
+([`codegen/graphqlgen.js`](codegen/graphqlgen.js)) selects the invalidation metadata
+baked into every generated wrapper:
+
+```js
+config: { molRuntime: '$demo_graphql', revalidation: 'all' } // 'all' | 'by_typenames' | 'disable'
+```
+
+- **`all`** (the default, and what this demo ships): the convention above. Every query
+  subscribes to one universal marker, every mutation bumps it.
+- **`by_typenames`**: the codegen walks each operation against the schema and bakes the
+  resulting object-type set into the wrapper. A query subscribes to a per-type marker
+  for each type it reads (`reads: ['Note', 'User']`); a mutation bumps the markers of
+  the types in its response (`writes: ['Note']`). A like (writes `Note`) refetches the
+  notes list (reads `Note`) but not a viewer query (reads only `User`), with no manual
+  `{ revalidate: false }` needed for that isolation. And because the read set comes
+  from the schema walk, not from runtime data, a query whose list came back empty still
+  refetches when the first item appears (urql's document cache, which derives the same
+  sets from runtime `__typename`s, misses that case).
+- **`disable`**: wrappers never subscribe and never bump. Queries fetch once and
+  recompute only when their own inputs change.
+
+`{ revalidate: false }` keeps working in every mode and opts a single call out.
+Operations without metadata (hand-written `$demo_graphql_request` calls) degrade to the
+universal marker in any mode, so mixing them with generated wrappers stays safe.
+
+You can enable `by_typenames` if your backend guarantees that every mutation returns,
+in its own payload, all the object types that mutation affects. When that holds, the
+computed write set (the types in the mutation's response) equals the real affected set,
+per-type invalidation is exact, and you do not need `@touches`. A mutation whose
+payload contains no object type at all (a delete returning `Boolean`) falls back to
+the universal marker automatically: unknown effect, assume everything. The dangerous
+case is a mutation that returns one type but also changes another, like a like that
+also bumps a per-user counter. Either include the changed type in the payload or
+declare it:
+
+```graphql
+mutation DemoFixtureTouch($id: ID!) @touches(types: ["User"]) {
+  note_like(id: $id) { id likes }
+}
+```
+
+The codegen unions the declared types into `writes` and strips the directive from the
+document it sends. The honest caveat: nothing forces the author of a side-effectful
+mutation to remember that declaration, and a forgotten `@touches` means silently stale
+data. That failure mode is exactly the "forgotten invalidation callback" this page's
+convention was designed to make impossible, which is why the safe default stays `'all'`.
+
+The other two modes are proven by tests rather than by the shipped page:
+[`graphql/index.test.ts`](graphql/index.test.ts) drives wrappers generated in
+`by_typenames` and `disable` mode ([`graphql/fixture/`](graphql/fixture/)) against a
+mock transport and asserts the selective refetch, the empty-list case, `@touches`, and
+the no-metadata degradation.
+
 ## Where to look (reading path)
 
 Follow these in order to see the whole idea, from a `.graphql` file to a running component:
@@ -148,9 +204,9 @@ Follow these in order to see the whole idea, from a `.graphql` file to a running
    query with the fragment merged in) and
    [`note/card/note.graphql.ts`](note/card/note.graphql.ts#L4-L13) (fragment type + `unmask`).
 4. The runtime: [`graphql/index.ts`](graphql/index.ts): the
-   [request layer and refetch convention](graphql/index.ts#L35-L69), the
-   [generation marker](graphql/index.ts#L26-L33), the
-   [opaque ref type](graphql/index.ts#L69-L71).
+   [request layer and refetch convention](graphql/index.ts#L80-L135), the
+   [invalidation markers](graphql/index.ts#L34-L68), the
+   [opaque ref type](graphql/index.ts#L136-L148).
 5. A component consuming a fragment: [`note/card/card.view.ts`](note/card/card.view.ts):
    [`note()` unmasks the ref](note/card/card.view.ts#L15-L17);
    [`renders()`](note/card/card.view.ts#L56-L69) is the counter that ticks on every refetch.
