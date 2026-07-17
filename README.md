@@ -25,12 +25,14 @@ module TypeScript. **Two builders meet through a file seam**: graphql-codegen wr
 in $mol itself. The generated symbol `$<module>_<opname>` appears in `namespace $`
 with zero imports.
 
+Paths below are relative to `demo/`.
+
 | `.graphql` source | generated `.graphql.ts` | exported symbol |
 |---|---|---|
-| `demo/app/notes.graphql` | `demo/app/notes.graphql.ts` | `$demo_app_notes(): DemoAppNotesQuery` |
-| `demo/app/viewer.graphql` | `demo/app/viewer.graphql.ts` | `$demo_app_viewer(): DemoAppViewerQuery` |
-| `demo/note/card/note.graphql` | `demo/note/card/note.graphql.ts` | `$demo_note_card_note` + `$demo_note_card_note_unmask(ref)` |
-| `demo/note/card/like.graphql` | `demo/note/card/like.graphql.ts` | `$demo_note_card_like(vars): DemoNoteCardLikeMutation` |
+| `app/notes.graphql` | `app/notes.graphql.ts` | `$demo_app_notes(): DemoAppNotesQuery` |
+| `app/viewer.graphql` | `app/viewer.graphql.ts` | `$demo_app_viewer(): DemoAppViewerQuery` |
+| `note/card/note.graphql` | `note/card/note.graphql.ts` | `$demo_note_card_note` + `$demo_note_card_note_unmask(ref)` |
+| `note/card/like.graphql` | `note/card/like.graphql.ts` | `$demo_note_card_like(vars): DemoNoteCardLikeMutation` |
 
 The result/variables types are **baked in by the generator** (it knows the schema and
 the operation), so there is no reliance on byte-for-byte string-literal matching.
