@@ -1,4 +1,4 @@
-[English](README.md) · [Русский](README_ru.md)
+**[English](README.md)** · [Русский](README_ru.md)
 
 # $mol + GraphQL codegen: Relay's fragment way, without React
 
@@ -32,7 +32,7 @@ in $mol itself. The generated symbol `$<module>_<opname>` appears in `namespace 
 with zero imports.
 
 This repo is the `demo` package of a [mam](https://github.com/hyoo-ru/mam) workspace
-(the repo root mounts at `demo/`), so a repo path `app/…` is workspace path `demo/app/…`
+(the repo root mounts at `demo/`), so a repo path `app/...` is workspace path `demo/app/...`
 and the generated symbols carry the `$demo_` prefix.
 
 | `.graphql` source | generated `.graphql.ts` | exported symbol |
@@ -310,7 +310,7 @@ real graphql-js executor over the SDL ([`pages/mock.mjs`](pages/mock.mjs)). Dele
   (identical to TS/JS at both type and runtime level). If you hand-write such tokens in
   a module `.ts`, escape them the same way (see `graphql/index.ts`).
   Prior art avoided this by hand: adding empty stub directories named after the phantom
-  tokens (`fragment/`, `id/`, …) so the scanner resolves them to nothing. Escaping every
+  tokens (`fragment/`, `id/`, ...) so the scanner resolves them to nothing. Escaping every
   `$` is the canonical fix: no stub dirs, and it survives new field/variable names
   automatically.
 - **`mam.ts`/`mam.jam.js` must exist at the workspace root** (they declare `class $`);
