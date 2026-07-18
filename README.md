@@ -495,37 +495,47 @@ the no-metadata degradation.
 
 ## Subscriptions over SSE
 
-Queries and mutations go through the codegen; subscriptions do NOT. The codegen
-throws on a subscription document on purpose
-([`codegen/molplugin.js`](codegen/molplugin.js)), the same split trip2g uses: a
+Subscriptions are codegen-TYPED from the schema, same as queries and mutations,
+but their RUNTIME is a separate raw SSE host, the same split trip2g uses: a
 query is one request returning one value through the sync fiber transport, while
 a subscription is a long-lived stream pushing many values. Forcing a stream
-through the request seam would give it the wrong shape, so subscriptions get a
-small hand-written raw runtime instead
+through the request seam would give it the wrong shape, so only the TYPE comes
+from the codegen ([`codegen/molplugin.js`](codegen/molplugin.js)); the stream
+lives in a small hand-written runtime
 ([`graphql/subscription/subscription.ts`](graphql/subscription/subscription.ts)).
 
-The subscription document is a plain string next to the component that consumes
-it ([`note/live/live.view.ts`](note/live/live.view.ts)), no `.graphql` wrapper:
+The subscription document is a `.graphql` file next to the component that
+consumes it ([`note/live/note_liked.graphql`](note/live/note_liked.graphql)),
+and the generated wrapper
+([`note/live/note_liked.graphql.ts`](note/live/note_liked.graphql.ts)) returns
+the raw host with the schema-derived result type baked in:
 
 ```ts
-const NOTE_LIKED_QUERY = `
-	subscription demo_note_live {
-		note_liked { id title likes }
-	}
-`
-
-@ $mol_mem
-subscription() {
-	return $demo_graphql_subscription(NOTE_LIKED_QUERY)
+export function $demo_note_live_note_liked(): $demo_graphql_subscription_host<demo_note_live_note_likedSubscription> {
+	return $demo_graphql_subscription(`subscription demo_note_live_note_liked {
+  note_liked { id title likes }
+}`, undefined) as $demo_graphql_subscription_host<demo_note_live_note_likedSubscription>
 }
 ```
 
-`$demo_graphql_subscription(query, variables)` returns a shared reactive host
-per document: `.data()` is a `$mol_mem` holding the latest event payload,
-`.error()` the latest failure, `.opened()` the connection state. Reading
-`.data()` spins the stream up; the host reconnects after a delay when the stream
-drops, and aborts the connection when nothing on the page renders the data
-anymore.
+The consumer ([`note/live/live.view.ts`](note/live/live.view.ts)) calls the
+wrapper and reads `.data()?.note_liked` fully typed, so a schema change breaks
+the build instead of silently drifting past a hand-written type:
+
+```ts
+@ $mol_mem
+subscription() {
+	return $demo_note_live_note_liked()
+}
+```
+
+`$demo_graphql_subscription<Data>(query, variables)` returns a shared reactive
+host per document: `.data()` is a `$mol_mem` holding the latest event payload
+(typed `Data | null`), `.error()` the latest failure, `.opened()` the connection
+state. The `Data` generic is a compile-time claim only, pinned by the generated
+wrapper; the runtime is identical for every caller. Reading `.data()` spins the
+stream up; the host reconnects after a delay when the stream drops, and aborts
+the connection when nothing on the page renders the data anymore.
 
 The transport is SSE: the default connect seam POSTs the document to the GraphQL
 endpoint with `Accept: text/event-stream` (the graphql-sse "distinct
@@ -563,11 +573,11 @@ In order, from a `.graphql` file to a running component:
 1. A component's own operations: [`app/notes.graphql`](app/notes.graphql) and
    [`note/card/note.graphql`](note/card/note.graphql). Plain files next to the component.
 2. The codegen that types them: [`codegen/molplugin.js`](codegen/molplugin.js):
-   [`renameOperations`](codegen/molplugin.js#L107-L119) rewrites the operation name to the
-   path-derived canonical; [`operationCode`](codegen/molplugin.js#L121-L161) merges spread
+   [`renameOperations`](codegen/molplugin.js#L114-L126) rewrites the operation name to the
+   path-derived canonical; [`operationCode`](codegen/molplugin.js#L128-L182) merges spread
    fragments into the sent string and emits the typed wrapper;
-   [`fragmentCode`](codegen/molplugin.js#L245-L283) emits the fragment type, the ref alias and both `unmask` helpers;
-   [`escapeDollars`](codegen/molplugin.js#L101-L103) is
+   [`fragmentCode`](codegen/molplugin.js#L266-L304) emits the fragment type, the ref alias and both `unmask` helpers;
+   [`escapeDollars`](codegen/molplugin.js#L108-L110) is
    the `$`-escape fix. [`codegen/preset.js`](codegen/preset.js) wires one output per file.
 3. The generated output: [`app/notes.graphql.ts`](app/notes.graphql.ts#L13-L30) (masked
    query with the fragment merged in) and
@@ -700,7 +710,7 @@ every stray `$`-token in source text is a build input, intended or not.
 GraphQL query variables (`$id`) and fragment-masking keys (`' $fragmentRefs'`,
 `' $fragmentName'`) carry a `$` that is not a $mol module; the scanner would resolve
 phantom modules and fail the build. So the codegen writes every such `$`
-as `\u0024`: [`escapeDollars`](codegen/molplugin.js#L101-L103) for type output,
+as `\u0024`: [`escapeDollars`](codegen/molplugin.js#L108-L110) for type output,
 `escapeTemplate` for the embedded query strings, both in
 [`codegen/molplugin.js`](codegen/molplugin.js). Real module references the codegen
 DOES want as dependencies (`$demo_note_card_note`) stay unescaped on purpose. If you
@@ -791,8 +801,9 @@ Worth knowing:
 
 - The GraphQL server is graphql-yoga with fixed in-memory data (likes actually
   increment server-side).
-- No persisted queries, no normalized cache (see above). Subscriptions exist,
-  but only as the raw SSE runtime: the codegen keeps throwing on them.
+- No persisted queries, no normalized cache (see above). Subscriptions are
+  codegen-typed like queries, but the stream runtime is the raw SSE host, not
+  the request seam.
 - `type-check evidence`: the mam build itself type-checks the exact bundle program
   (its audit fails the build on any TS error). A whole-workspace `tsc -p .` also
   drags in mol's unbuilt demo modules and is noisy; the bundle audit is the real gate.
