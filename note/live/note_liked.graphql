@@ -1,0 +1,7 @@
+subscription demo_note_live_note_liked {
+	note_liked {
+		id
+		title
+		likes
+	}
+}

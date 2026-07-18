@@ -1,33 +1,20 @@
 namespace $.$$ {
 
-	// The subscription document is a hand-written string ON PURPOSE: the
-	// codegen throws on subscription documents (codegen/molplugin.js), because
-	// a stream is not a request - it goes through the raw runtime host, not
-	// through the sync request seam the generated wrappers share.
-	const NOTE_LIKED_QUERY = `
-		subscription demo_note_live {
-			note_liked {
-				id
-				title
-				likes
-			}
-		}
-	`
-
-	type note_liked = { id: string, title: string, likes: number }
-
+	// The subscription document lives in note_liked.graphql and the codegen
+	// bakes its result type into the wrapper, same as queries/mutations. Only
+	// the TYPE is generated: a stream is not a request, so the wrapper returns
+	// the raw runtime host, not the sync request seam.
 	export class $demo_note_live extends $.$demo_note_live {
 
 		@ $mol_mem
 		subscription() {
-			return $demo_graphql_subscription(NOTE_LIKED_QUERY)
+			return $demo_note_live_note_liked()
 		}
 
 		/** Latest note_liked event, null until the first one arrives. */
 		@ $mol_mem
-		last(): note_liked | null {
-			const data = this.subscription().data() as { note_liked?: note_liked } | null
-			return data?.note_liked ?? null
+		last() {
+			return this.subscription().data()?.note_liked ?? null
 		}
 
 		/** Counts events, not renders: the probe peeks its own previous value without subscribing (same pattern as the render probes). */

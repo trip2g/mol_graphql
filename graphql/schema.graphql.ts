@@ -42,6 +42,11 @@ export type Query = {
   viewer: User;
 };
 
+export type Subscription = {
+  __typename?: 'Subscription';
+  note_liked: Note;
+};
+
 export type User = {
   __typename?: 'User';
   id: Scalars['ID']['output'];

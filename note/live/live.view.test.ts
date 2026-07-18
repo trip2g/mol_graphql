@@ -37,7 +37,7 @@ namespace $.$$ {
 			const { captured, connect } = connect_probe()
 			with_connect(connect, () => {
 
-				const host = new $demo_graphql_subscription_host()
+				const host = new $demo_graphql_subscription_host<demo_note_live_note_likedSubscription>()
 				const live = $demo_note_live.make({ $, subscription: () => host })
 
 				// no events yet: reading the panel spins the stream up
@@ -63,7 +63,7 @@ namespace $.$$ {
 			const { captured, connect } = connect_probe()
 			with_connect(connect, () => {
 
-				const host = new $demo_graphql_subscription_host()
+				const host = new $demo_graphql_subscription_host<demo_note_live_note_likedSubscription>()
 				const live = $demo_note_live.make({ $, subscription: () => host })
 
 				$mol_assert_equal(live.status_title(), 'Live (SSE): connecting / events: 0')

@@ -8,6 +8,13 @@
 // byte-for-byte literal matching. Fragment spreads are merged into the sent
 // document at codegen time (transitively, by unique fragment name).
 //
+// For a subscription file the wrapper returns the raw SSE host, typed:
+//   export function $demo_note_live_note_liked(): $demo_graphql_subscription_host<demo_note_live_note_likedSubscription> {
+//       return $demo_graphql_subscription(`<subscription document>`) as ...
+//   }
+// Only the TYPE comes from the codegen; the stream runtime stays the
+// hand-written host (graphql/subscription/) - a stream is not a request.
+//
 // Operations are auto-named from the file location: the canonical name is the
 // wrapper symbol without the `$` (note/card/like.graphql -> demo_note_card_like).
 // Whatever the author wrote - `query { ... }` (anonymous) or any name - is
@@ -119,10 +126,6 @@ function renameOperations(doc, name) {
 }
 
 function operationCode(def, doc, { symbol, runtime, fragments, schema, revalidation }) {
-	if (def.operation === 'subscription') {
-		throw new Error(`${doc.location}: subscriptions are out of scope for this demo`)
-	}
-
 	const opName = def.name.value
 	const resultType = opName + SUFFIX[def.operation]
 	const varsType = resultType + 'Variables'
@@ -140,9 +143,27 @@ function operationCode(def, doc, { symbol, runtime, fragments, schema, revalidat
 	const varDefs = def.variableDefinitions || []
 	const required = varDefs.some(v => v.type.kind === 'NonNullType' && !v.defaultValue)
 	const varsParam = varDefs.length === 0 ? '' : `variables${required ? '' : '?'}: ${varsType}`
+	const varsArg = varDefs.length === 0 ? 'undefined' : 'variables'
+
+	// a subscription is a stream, not a request: the wrapper only TYPES the raw
+	// SSE host with the schema-derived result type; the runtime host itself stays
+	// hand-written (no request seam, no revalidation opts)
+	if (def.operation === 'subscription') {
+		const hostType = `${runtime}_subscription_host<${resultType}>`
+		const code = ['']
+		if (closure.length) {
+			code.push(`/** Spreads fragments: ${closure.map(name => fragments[name].symbol).join(', ')} */`)
+		}
+		code.push(
+			`export function ${symbol}(${varsParam}): ${hostType} {`,
+			`\treturn ${runtime}_subscription(\`${escapeTemplate(merged)}\`, ${varsArg}) as ${hostType}`,
+			`}`,
+		)
+		return code
+	}
+
 	const optsParam = 'opts?: { revalidate?: boolean }'
 	const param = [varsParam, optsParam].filter(Boolean).join(', ')
-	const varsArg = varDefs.length === 0 ? 'undefined' : 'variables'
 
 	const optsArg = optsArgCode(def, { schema, revalidation, fragments, location: doc.location })
 

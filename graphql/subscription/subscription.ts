@@ -2,15 +2,15 @@ namespace $ {
 
 	// $demo_graphql_subscription: the raw SSE subscription runtime.
 	//
-	// Subscriptions are a SEPARATE runtime on purpose, NOT covered by the
-	// query/mutation codegen (which throws on a subscription document): a
-	// query is one request returning one value through the sync fiber
-	// transport, while a subscription is a long-lived stream pushing many
-	// values. So the subscription document is a hand-written string next to
-	// the component that consumes it (see note/live/live.view.ts), and this
-	// runtime turns it into a reactive host: reading `.data()` spins the
-	// stream up, every server event writes the mem, every subscribed view
-	// re-renders.
+	// Subscriptions are a SEPARATE runtime on purpose, NOT the request seam
+	// the query/mutation wrappers share: a query is one request returning one
+	// value through the sync fiber transport, while a subscription is a
+	// long-lived stream pushing many values. The codegen still TYPES the
+	// stream: a subscription .graphql file (see note/live/note_liked.graphql)
+	// generates a wrapper that returns this host with the schema-derived
+	// result type as `Data`. This runtime turns the document into a reactive
+	// host: reading `.data()` spins the stream up, every server event writes
+	// the mem, every subscribed view re-renders.
 
 	/** What one live stream reports back to its host. */
 	export type $demo_graphql_subscription_events = {
@@ -92,7 +92,7 @@ namespace $ {
 	 * destructor aborts it, so the stream lives exactly while something on the
 	 * page renders the data.
 	 */
-	export class $demo_graphql_subscription_host extends $mol_object {
+	export class $demo_graphql_subscription_host<Data = any> extends $mol_object {
 
 		restart_delay() { return 3000 }
 		query() { return '' }
@@ -110,7 +110,7 @@ namespace $ {
 
 		/** Latest event payload; reading it keeps the stream alive. */
 		@ $mol_mem
-		data(next?: any) {
+		data(next?: Data | null): Data | null {
 			this.source()
 			return next ?? null
 		}
@@ -129,7 +129,7 @@ namespace $ {
 					this.opened(true)
 					this.error(null)
 				},
-				next: data => this.data(data),
+				next: data => this.data(data as Data),
 				fail: error => this.error(error),
 			}
 
@@ -153,12 +153,14 @@ namespace $ {
 	/**
 	 * One shared host per document + variables (trip2g keeps the same
 	 * registry): two components subscribing to the same stream share one
-	 * connection and one reactive value.
+	 * connection and one reactive value. `Data` is a compile-time claim only
+	 * (the generated wrappers pin it to the schema-derived result type); the
+	 * runtime is identical for every caller.
 	 */
-	export function $demo_graphql_subscription(
+	export function $demo_graphql_subscription<Data = any>(
 		query: string,
 		variables?: Record<string, unknown>,
-	): $demo_graphql_subscription_host {
+	): $demo_graphql_subscription_host<Data> {
 		const key = query + JSON.stringify(variables ?? {})
 		let host = hosts.get(key)
 		if (!host) {
@@ -167,7 +169,7 @@ namespace $ {
 			host.variables = () => variables ?? {}
 			hosts.set(key, host)
 		}
-		return host
+		return host as $demo_graphql_subscription_host<Data>
 	}
 
 }
