@@ -685,10 +685,6 @@ with [`server/mock.mjs`](server/mock.mjs) by hand.
 - **The $mol dep scanner reads `$`-tokens everywhere**, including string literals and
   doc-comments; emitted non-module `$` is escaped as `\u0024`. Full story in
   [The `$` dependency scanner](#the--dependency-scanner) below.
-- **`mam.ts`/`mam.jam.js` must exist at the workspace root** (they declare `class $`);
-  without them every `$`-as-type use in mol fails to compile. They come from the
-  central [hyoo-ru/mam](https://github.com/hyoo-ru/mam) workspace; a package repo like
-  this one must NOT vendor its own.
 - The generated wrapper for an operation that spreads fragments carries a
   `/** Spreads fragments: $demo_note_card_note */` doc-comment: a real dependency
   edge for the builder (nothing else would link the fragment's module into the
